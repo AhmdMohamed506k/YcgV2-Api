@@ -29,9 +29,9 @@ const userSchema = new Schema(
       type: String,
       unique: true,
     },
-    skill:{
-      type:Array,
-      default:null
+    skill: {
+      type: Array,
+      default: null,
     },
     userPhoneNumber: {
       type: String,
@@ -47,6 +47,10 @@ const userSchema = new Schema(
       lowercase: true,
       default: "male",
     },
+    isPremium: {
+      type: Boolean,
+      default: false,
+    },
     userCV: {
       secure_url: { type: String, default: null },
       public_id: { type: String, default: null },
@@ -59,10 +63,7 @@ const userSchema = new Schema(
       secure_url: { type: String, default: null },
       public_id: { type: String, default: null },
     },
-    recoveryEmail: {
-      type: String,
-      lowercase: true,
-    },
+    ForgetPassCode:  { type: String, default: null },
     Emailverificationcode: String,
     EmailverificationisVerified: {
       type: Boolean,
@@ -115,14 +116,12 @@ userSchema.virtual("myFollowers", {
   ref: "Follow",
   localField: "_id",
   foreignField: "followingId",
-
 });
 
 userSchema.virtual("myFollowing", {
   ref: "Follow",
   localField: "_id",
   foreignField: "followerId",
-
 });
 
 userSchema.virtual("followersCount", {
@@ -130,17 +129,13 @@ userSchema.virtual("followersCount", {
   localField: "_id",
   foreignField: "followingId",
   count: true,
-
 });
-
 
 userSchema.virtual("followingCount", {
   ref: "Follow",
   localField: "_id",
-  foreignField: "followerId", 
+  foreignField: "followerId",
   count: true,
 });
-
-
 
 export const userModel = model("user", userSchema);

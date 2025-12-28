@@ -19,11 +19,14 @@ export const Register = asyncHandler(async (req, res, next) => {
   const userExist = await userModel.findOne({ email });
   if (userExist) {
     return next(new Error("Email already Exist"));
- 
   }
 
   const PhoneExist = await userModel.findOne({ userPhoneNumber });
-  if (PhoneExist) {return next(new Error("Phone already Exist already Exist please change it"));}
+  if (PhoneExist) {
+    return next(
+      new Error("Phone already Exist already Exist please change it")
+    );
+  }
 
   var token = jwt.sign({ email: email }, process.env.tokenKey);
   const hashPass = bcrypt.hashSync(password, 8); //PasswordEncryption
@@ -33,15 +36,22 @@ export const Register = asyncHandler(async (req, res, next) => {
 
   sendEmail(email, "", `<h1>your code in ${code}</h1>`);
 
-  const user = await userModel.create({ email, password: hashPass, userPhoneNumber, dateofBirth, Emailverificationcode: code,});
-
-
+  const user = await userModel.create({
+    email,
+    password: hashPass,
+    userPhoneNumber,
+    dateofBirth,
+    Emailverificationcode: code,
+  });
 
   if (user) {
-    res.status(200).json({ msg: "Success please check your email to verify your account", user, usertoken: token,});
+    res.status(200).json({
+      msg: "Success please check your email to verify your account",
+      user,
+      usertoken: token,
+    });
   } else {
     next(new Error("Sorry an Error happened"));
-   
   }
 });
 export const VerfiyUserAccount = asyncHandler(async (req, res, next) => {
@@ -49,13 +59,11 @@ export const VerfiyUserAccount = asyncHandler(async (req, res, next) => {
 
   const userExist = await userModel.findById(req.user._id);
   if (!userExist) {
-     return  next(new Error("User Not Exist"));
-
+    return next(new Error("User Not Exist"));
   }
 
   if (userExist.Emailverificationcode != Emailverificationcode) {
-     return  next(new Error("Sorry invalid verification code"));
- 
+    return next(new Error("Sorry invalid verification code"));
   }
 
   userExist.Emailverificationcode = "";
@@ -64,21 +72,21 @@ export const VerfiyUserAccount = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({ msg: "verified successfully" });
 });
-export const AddRegisteredUserName = asyncHandler(async (req, res) => {
-
-
-
+export const AddRegisteredUserName = asyncHandler(async (req, res,next) => {
   const { firstName, lastName } = req.body;
 
-
-  const user = await userModel.findByIdAndUpdate( req.user._id, { firstName, lastName }, { new: true, runValidators: true });
+  const user = await userModel.findByIdAndUpdate(
+    req.user._id,
+    { firstName, lastName },
+    { new: true, runValidators: true }
+  );
 
   if (!user) {
-    return  next(new Error("User not found"));
+    return next(new Error("User not found"));
   }
   res.status(200).json({ msg: "Username added successfully" });
 });
-export const AddRegisteredUserLocation = asyncHandler(async (req, res) => {
+export const AddRegisteredUserLocation = asyncHandler(async (req, res,next) => {
   const { country, city } = req.body;
 
   const user = await userModel.findByIdAndUpdate(
@@ -88,12 +96,11 @@ export const AddRegisteredUserLocation = asyncHandler(async (req, res) => {
   );
 
   if (!user) {
-      return  next(new Error("User not found"));
-
+    return next(new Error("User not found"));
   }
   res.status(200).json({ msg: "User location added successfully" });
 });
-export const AddRegisteredUserCurrentJob = asyncHandler(async (req, res) => {
+export const AddRegisteredUserCurrentJob = asyncHandler(async (req, res,next) => {
   const { JopTitle, EmploymentType } = req.body;
 
   const user = await userModel.findByIdAndUpdate(
@@ -106,8 +113,7 @@ export const AddRegisteredUserCurrentJob = asyncHandler(async (req, res) => {
   );
 
   if (!user) {
-
-      return  next(new Error("User not found"));
+    return next(new Error("User not found"));
   }
   res.status(200).json({ msg: "User Current Job added successfully" });
 });
@@ -115,14 +121,16 @@ export const AddRegisteredUserOtherInformations = asyncHandler(async (req, res) 
     const { userSubTitle } = req.body;
 
     const user = await userModel.findById(req.user._id);
-    if (!user)  return  next(new Error("User does not exist"));
- 
-    if (!req.file) return  next(new Error("Profile image is required"));
+    if (!user) return next(new Error("User does not exist"));
 
+    if (!req.file) return next(new Error("Profile image is required"));
 
-    const userRandomId = nanoid();
-    const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path,{
-        folder: `Ycg/users/${req.user._id}/${req.user.firstName || "" }_${req.user.lastName || ""}/ProfileImage/${userRandomId}`,
+    const { secure_url, public_id } = await cloudinary.uploader.upload(
+      req.file.path,
+      {
+        folder: `Ycg/users/${req.user._id}/${req.user.firstName || ""}_${
+          req.user.lastName || ""
+        }/ProfileImage`,
       }
     );
 
@@ -137,34 +145,109 @@ export const AddRegisteredUserOtherInformations = asyncHandler(async (req, res) 
       { new: true }
     );
 
-    if (!updatedUser){
-      return  next(new Error("Failed to update user information"));
-    }else{
-    res.status(200).json({  msg: "User information updated successfully",  user: updatedUser,});
-    } 
+    if (!updatedUser) {
+      return next(new Error("Failed to update user information"));
+    } else {
+      res.status(200).json({
+        msg: "User information updated successfully",
+        user: updatedUser,
+      });
+    }
   }
 );
 
 // =============LoggedUserApis==================
 export const Login = asyncHandler(async (req, res, next) => {
-
-
   var { Email, password } = req.body;
 
-  var user = await userModel.findOne( Email );
+  var user = await userModel.findOne(Email);
 
-  
   if (!user || !bcrypt.compareSync(password, user.password)) {
     next(new Error("Sorry wrong Email or Password"));
   }
 
-  var token = jwt.sign( { Email: Email, userName: user.userName }, process.env.tokenKey);
+  var token = jwt.sign(
+    { Email: Email, userName: user.userName },
+    process.env.tokenKey
+  );
 
-  await userModel.findOneAndUpdate( { status: "offline", Email }, { status: "online" }, { new: true } );
+  await userModel.findOneAndUpdate(
+    { status: "offline", Email },
+    { status: "online" },
+    { new: true }
+  );
   res.status(200).json({ msg: "done", token });
 });
-export const getLoggedinUserProfile = async (req, res) => {
-  try {
+export const ForgetPassWord = asyncHandler(async (req, res,next) => {
+      
+  const {email}= req.body;
+  
+  const UserExist= await userModel.findOne({email});
+  if(!UserExist){return next(new Error("Sorry User Not Exist")) };
+
+
+ const generateOTP = customAlphabet("0123456789", 6);
+  const OTP= generateOTP()
+  
+
+  UserExist.ForgetPassCode=OTP;
+  await UserExist.save()
+
+  await sendEmail(email ,"Rest your password" , `<h1> your code is ${OTP} </h1>`);
+ 
+ res.status(200).json({msg:"Code Sent successfully please Check your Email"});
+
+});
+export const CheckResetCode = asyncHandler(async (req, res,next) => {
+      
+  const {Code}= req.body;
+  
+  const UserExist= await userModel.findOne({ForgetPassCode:Code});
+  if(!UserExist){return next(new Error("Sorry User Not Exist")) };
+
+   
+  if(!UserExist){
+    return next(new Error("Invalid Code"))
+  }
+  
+  UserExist.ForgetPassCode="";
+  await UserExist.save()
+
+
+  res.status(200).json({msg:"Code is valid"})
+  
+  
+
+
+
+});
+export const ResetPassword = asyncHandler(async (req, res, next) => {
+  const { email, newPassword } = req.body;
+
+  if (!email || !newPassword) {
+    return next(new Error("All fields are required"));
+  }
+
+  const useExist = await userModel.findOne({ email });
+  if (!useExist) {
+    return next(new Error("User not found"));
+  }
+
+  // Verify reset code
+  if ( useExist.ForgetPassCode !== "" ) {
+    return next(new Error("Sorry there is an Error please try again later"));
+  }
+
+  // Hash password
+  const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+  useExist.password = hashedPassword;
+  await useExist.save();
+
+  res.status(200).json({ msg: "Password changed successfully",});
+});
+export const getLoggedinUserProfile = asyncHandler(async (req, res,next) => {
+
     const userId = req.user._id;
 
     //To get Logged in user profile with (followrs && followrs count) and (following && following count)
@@ -177,53 +260,161 @@ export const getLoggedinUserProfile = async (req, res) => {
       .populate({ path: "myFollowers", select: "followerId -_id" });
 
     //Check if id in valid
-    if (!userProfile) {  return  next(new Error("User not found"));}
+    if (!userProfile) {
+      return next(new Error("User not found"));
+    }
     res.status(200).json({ status: "success", data: { profile: userProfile } });
-  } catch (error) {
-    res.status(500).json({ message: "Server Error", error: error.message });
-  }
-};
+ 
+})
 export const UploadLoggedInUserCv = asyncHandler(async (req, res, next) => {
   try {
-  const userExist = await userModel.findById(req.user._id);
-  if (!userExist) { return next(new Error("User not found"));}
+    const userExist = await userModel.findById(req.user._id);
+    if (!userExist) {
+      return next(new Error("User not found"));
+    }
 
- 
-  
-  if (!req.file) {
-    return next(new Error("No file uploaded"));
-  }
+    if (!req.file) {
+      return next(new Error("No file uploaded"));
+    }
 
+    const userRandomId = nanoid();
+    const { secure_url, public_id } = await cloudinary.uploader.upload(
+      req.file.path,
+      {
+        folder: `Ycg/users/${req.user._id}/${req.user.firstName || ""}_${
+          req.user.lastName || ""
+        }/UserCVs/${userRandomId}`,
+      }
+    );
 
-  
-  const userRandomId = nanoid();
-  const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path, {
-  folder: `Ycg/users/${req.user._id}/${req.user.firstName || ""}_${req.user.lastName || ""}/UserCVs/${userRandomId}`,
-  });
+    const upload = await userModel.findOneAndUpdate(
+      { _id: req.user._id, status: "online" },
+      { userCV: { secure_url, public_id } },
+      { new: true }
+    );
 
- 
-  const upload = await userModel.findOneAndUpdate({ _id: req.user._id, status: "online" },{ userCV: { secure_url, public_id } }, { new: true } );
+    if (!upload) {
+      return next(
+        new Error("You are offline or an error occurred while updating CV")
+      );
+    }
 
-  if (!upload) {
-   return next(new Error("You are offline or an error occurred while updating CV"));
-  }
-
-  res.status(201).json({ msg: "CV uploaded successfully", userCV: upload.userCV });
+    res
+      .status(201)
+      .json({ msg: "CV uploaded successfully", userCV: upload.userCV });
   } catch (error) {
     next(error);
   }
 });
+export const UploadLoggedInUserBanner = asyncHandler(async (req, res, next) => {
+  try {
+    const userExist = await userModel.findById(req.user._id);
+    if (!userExist) {
+      return next(new Error("User not found"));
+    }
 
+    if (!req.file) {
+      return next(new Error("No file uploaded"));
+    }
 
+    const userRandomId = nanoid();
+    const { secure_url, public_id } = await cloudinary.uploader.upload(
+      req.file.path,
+      {
+        folder: `Ycg/users/${req.user._id}/${req.user.firstName || ""}_${
+          req.user.lastName || ""
+        }/userBanner/${userRandomId}`,
+      }
+    );
 
+    const upload = await userModel.findOneAndUpdate(
+      { _id: req.user._id, status: "online" },
+      { userBanner: { secure_url, public_id } },
+      { new: true }
+    );
 
+    if (!upload) {
+      return next(
+        new Error(
+          "You are offline or an error occurred while updating userBanner"
+        )
+      );
+    }
 
+    res.status(201).json({
+      msg: "userBanner uploaded successfully",
+      userBanner: upload.userBanner,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+export const UpdateLoggedInUserImageProfile = asyncHandler( async (req, res, next) => {
+    try {
+      const userExist = await userModel.findById(req.user._id);
+      if (!userExist) {
+        return next(new Error("User not found"));
+      }
 
+      if (!req.file) {
+        return next(new Error("No file uploaded"));
+      }
 
+      if (userExist.userProfileImg.public_id) {
+        await cloudinary.uploader.destroy(userExist.userProfileImg.public_id);
+      }
 
+      const { secure_url, public_id } = await cloudinary.uploader.upload(
+        req.file.path,
+        {
+          folder: `Ycg/users/${req.user._id}/${req.user.firstName || ""}_${
+            req.user.lastName || ""
+          }/ProfileImage`,
+        }
+      );
 
+      const upload = await userModel.findOneAndUpdate(
+        { _id: req.user._id, status: "online" },
+        { userProfileImg: { secure_url, public_id } },
+        { new: true }
+      );
 
+      if (!upload) {
+        return next(
+          new Error(
+            "You are offline or an error occurred while updating userProfileImg"
+          )
+        );
+      }
 
+      res.status(201).json({
+        msg: "userProfileImg uploaded successfully",
+        userProfileImg: upload.userProfileImg,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+export const updateLoggedInUserdata = asyncHandler(async (req, res ,next) => {
+  const updates = {};
+
+  if (req.body.firstName) updates.firstName = req.body.firstName;
+  if (req.body.lastName) updates.lastName = req.body.lastName;
+  if (req.body.userSubTitle) updates.userSubTitle = req.body.userSubTitle;
+
+  if (req.body.country) updates["location.country"] = req.body.country;
+  if (req.body.city) updates["location.city"] = req.body.city;
+
+  const user = await userModel.findByIdAndUpdate( req.user._id,{ $set: updates }, { new: true, runValidators: true } );
+
+  if (!user) {
+     return next(new Error("User not exist"));
+
+  }
+
+  res.status(200).json({ msg: "Successfully updated", user });
+});
 
 
 
@@ -235,26 +426,6 @@ export const UploadLoggedInUserCv = asyncHandler(async (req, res, next) => {
 export const getAllUsers = asyncHandler(async (req, res, next) => {
   const user = await userModel.find({});
   res.status(200).json(user);
-});
-
-export const UploadUserImage = asyncHandler(async (req, res, next) => {
-  const userRandomid = nanoid();
-
-  const { secure_url, public_id } = await cloudinary.uploader.upload(
-    req.file.path,
-    { folder: `Ycg/users/${req.user.userName}/ProfileImage/${userRandomid}` }
-  );
-
-  const upload = await userModel.findOneAndUpdate(
-    { _id: req.user._id, status: "online" },
-    { UserProfileImg: { secure_url, public_id } },
-    { new: true }
-  );
-  if (!upload) {
-    next(new Error("You are certainly offline or there an Error"));
-  }
-
-  res.status(201).json({ msg: "done" });
 });
 
 export const addUserSkills = asyncHandler(async (req, res, next) => {
@@ -323,34 +494,6 @@ export const addUserNewEducationFeild = asyncHandler(async (req, res, next) => {
 });
 
 //================================
-
-export const updateAccount = asyncHandler(async (req, res, next) => {
-  const { firstName, lastName, userName, mobileNumber } = req.body;
-
-  if (!req.user) {
-    res.status(400).json({ msg: "sorry only owner can update  account" });
-  }
-  const usernameExist = await userModel.findOne({
-    userName: req.user.userName,
-  });
-  if (usernameExist) {
-    res.status(400).json({ msg: "sorry userName already exist" });
-  }
-  const phoneExist = await userModel.findOne({
-    mobileNumber: req.user.mobileNumber,
-  });
-  if (phoneExist) {
-    res.status(400).json({ msg: "sorry phone number already exist" });
-  }
-
-  const user = await userModel.findOneAndUpdate(
-    { _id: req.user._id },
-    { firstName, lastName, userName, mobileNumber },
-    { new: true }
-  );
-
-  res.status(200).json({ msg: "successfully updated :)" });
-});
 
 export const updatePassword = asyncHandler(async (req, res, next) => {
   const { Email, password } = req.body;
