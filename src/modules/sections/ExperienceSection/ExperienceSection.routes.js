@@ -4,31 +4,14 @@ import * as Es from "./ExperienceSection.controller.js"
 
 
 
+const ExperienceSectionRouter = Router()
 
 
-
-
-const ExperienceSectionRouter= Router()
 
 ExperienceSectionRouter.get("/GetUserExperience",auth, Es.GetSpecificUserExperienc);
-
-
-ExperienceSectionRouter.put("/addUserExperienceSection",auth, Es.newUserExperiencSection);
-
-
+ExperienceSectionRouter.post("/AddnewUserExperiencSection",auth, Es.AddnewUserExperiencSection);
 ExperienceSectionRouter.put("/updatExperiencData/:_id",auth, Es.updatExperiencData);
-
-
 ExperienceSectionRouter.delete("/DeletUserExperienceSection/:_id",auth, Es.DeletUserExperienceSection);
-
-
-
-
-
-
-
-
-
 
 
 

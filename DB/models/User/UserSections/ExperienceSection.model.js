@@ -6,7 +6,7 @@ import mongoose, { isObjectIdOrHexString, isValidObjectId, model, Schema, Types 
 
 
 
- const experienceSectionSchema = new mongoose.Schema({
+const experienceSectionSchema = new mongoose.Schema({
 
 
 

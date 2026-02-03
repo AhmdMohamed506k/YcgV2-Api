@@ -15,10 +15,13 @@ export const auth = async (req, res, next) => {
     
     
     
+   
+      
      
    
-    const user = await userModel.findOne({ Email: decoded.Email});
-  
+    const user = await userModel.findOne({ email: decoded.email});
+    
+
     if (!user ) { return res.status(400).json({ msg: "you are not authorised" });}
     req.user = user
     next()

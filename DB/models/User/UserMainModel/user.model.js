@@ -1,6 +1,10 @@
 import mongoose, { Schema, model } from "mongoose";
 import { experienceSectionSchema } from "../UserSections/ExperienceSection.model.js";
 import { aboutSectionSchema } from "../UserSections/aboutSection.model.js";
+import { EducationSectionSchema } from "../UserSections/EducationSection.model.js";
+import { LanguagesSectionSchema } from "../UserSections/Languages.model.js";
+import { CourseSectionSchema } from "../UserSections/CourseSection.model.js";
+import { ProjectsSectionSchema } from "../UserSections/ProjectsSection.model.js";
 
 const userSchema = new Schema(
   {
@@ -23,19 +27,21 @@ const userSchema = new Schema(
     email: {
       type: String,
       unique: true,
+      required: true,
       lowercase: true,
+      trim: true,
     },
     password: {
       type: String,
-      unique: true,
+      required: true,
     },
-    skill: {
+    Userskills: {
       type: Array,
       default: null,
     },
     userPhoneNumber: {
       type: String,
-      unique: true,
+      index: true,
     },
     dateofBirth: {
       type: Date,
@@ -63,7 +69,7 @@ const userSchema = new Schema(
       secure_url: { type: String, default: null },
       public_id: { type: String, default: null },
     },
-    ForgetPassCode:  { type: String, default: null },
+    ForgetPassCode: { type: String, default: null },
     Emailverificationcode: String,
     EmailverificationisVerified: {
       type: Boolean,
@@ -100,8 +106,9 @@ const userSchema = new Schema(
       },
     },
     userSections: {
-      userExperienceSection: [experienceSectionSchema],
       userAboutSection: [aboutSectionSchema],
+      userLanguageSection: [LanguagesSectionSchema],
+    
     },
   },
   {
@@ -135,6 +142,13 @@ userSchema.virtual("followingCount", {
   ref: "Follow",
   localField: "_id",
   foreignField: "followerId",
+  count: true,
+});
+
+userSchema.virtual("viewsCount", {
+  ref: "View",
+  localField: "_id",
+  foreignField: "profileId",
   count: true,
 });
 
