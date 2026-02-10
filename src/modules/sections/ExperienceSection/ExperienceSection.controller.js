@@ -12,7 +12,7 @@ import redisClient from "../../../utils/redisClient/redisClient.js";
 //==> AddNewExperience
 export const AddnewUserExperiencSection = asyncHandler(async (req, res, next) => {
 
-    const { Experiencetype, JobTitle, CompanyName, StartFrom, EndingIn, StealWorking } = req.body;
+    const { Experiencetype, JobTitle, CompanyName, StartFrom, EndingIn, Location, LocationType, StealWorking } = req.body;
 
 
     if (StartFrom > EndingIn) {
@@ -21,7 +21,7 @@ export const AddnewUserExperiencSection = asyncHandler(async (req, res, next) =>
     if (StealWorking !== "false") {
 
 
-      const ObjectData = {  Experiencetype, JobTitle, CompanyName, StealWorking, CreatedBy: req.user._id };
+      const ObjectData = {  Experiencetype, JobTitle, CompanyName, StealWorking, Location, LocationType,  CreatedBy: req.user._id };
 
       const user = await userModel.findById(req.user._id);
       if (!user) return next(new Error("User not found", 400));
@@ -45,7 +45,7 @@ export const AddnewUserExperiencSection = asyncHandler(async (req, res, next) =>
     
 
 
-      const ObjectData = {  Experiencetype, JobTitle, CompanyName, StartFrom, EndingIn, StealWorking, CreatedBy: req.user._id };
+      const ObjectData = {  Experiencetype, JobTitle, CompanyName, StartFrom, EndingIn, StealWorking,Location, LocationType, CreatedBy: req.user._id };
 
       const user = await userModel.findById(req.user._id);
       if (!user) return next(new Error("User not found", 400));
@@ -87,7 +87,7 @@ export const GetSpecificUserExperienc = asyncHandler(async(req,res,next)=>{
 //==> UpdataSpecificUserExperience
 export const updatExperiencData = asyncHandler(async (req, res, next) => {
   const { _id } = req.params;
-  const { Experiencetype, JobTitle, CompanyName, StartFrom, EndingIn, StealWorking} = req.body;
+  const { Experiencetype, JobTitle, CompanyName, StartFrom, EndingIn, Location, LocationType, StealWorking} = req.body;
 
   const experience = await experienceSectionModel.findById(_id);
 
@@ -97,6 +97,8 @@ export const updatExperiencData = asyncHandler(async (req, res, next) => {
   experience.Experiencetype = Experiencetype;
   experience.JobTitle = JobTitle;
   experience.CompanyName = CompanyName;
+  experience.Location = Location;
+  experience.LocationType = LocationType;
   experience.StealWorking = StealWorking;
 
   // date logic

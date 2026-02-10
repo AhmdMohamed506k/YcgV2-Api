@@ -1,5 +1,6 @@
 
 
+
 import mongoose, { isObjectIdOrHexString, isValidObjectId, model, Schema, Types } from "mongoose";
 
 
@@ -8,15 +9,13 @@ import mongoose, { isObjectIdOrHexString, isValidObjectId, model, Schema, Types 
 
 const experienceSectionSchema = new mongoose.Schema({
 
+  JobTitle: {
+        type: String,
 
-
+    },
     Experiencetype: {
         type: String,
         Enum: ["Full time", "Part Time", "Freelance / Project", "Internship", "Student Activity", "FullTime"],
-
-    },
-    JobTitle: {
-        type: String,
 
     },
     CompanyName: {
@@ -34,9 +33,19 @@ const experienceSectionSchema = new mongoose.Schema({
 
 
     },
+    Location: {
+        type: String,
+
+    },
+    LocationType: {
+        type: String,
+        enum: ["onsite", "hybrid", "remote"],
+
+    },
     CreatedBy: {
         type: Types.ObjectId,
         ref: "user",
+        required:true
 
     }
 

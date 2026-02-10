@@ -12,6 +12,7 @@ import CourseSectionRouter from './src/modules/sections/CoursesSection/CourseSec
 import ProjectSectionRouter from './src/modules/sections/ProjectSection/ProjectSection.routes.js';
 import 'dotenv/config'
 import LicensesAndcertificationsRouter from './src/modules/sections/LicensesAndcertifications/LicensesAndcertifications.routes.js';
+import ActivityRouter from './src/modules/sections/ActivitySection/ActivitySection.routes.js';
 
 export const app = express()
 const port = process.env.port || 3000
@@ -34,6 +35,7 @@ app.use("/api/v1/UserLanguages", LanguageSectionRouter);
 app.use("/api/v1/UserCourse", CourseSectionRouter); 
 app.use("/api/v1/UserProjects", ProjectSectionRouter); 
 app.use("/api/v1/UserLicenses", LicensesAndcertificationsRouter); 
+app.use("/api/v1/UserActivity", ActivityRouter); 
 app.use("/", PostRouter); 
 
 
