@@ -4,10 +4,13 @@ import {asyncHandler} from "../../../middleware/asyncHandler/asyncHandler.js"
 import cloudinary from "../../../utils/Cloudinary/Cloudinary.js"
 import { ActivityModel } from "../../../../DB/models/User/UserActivity/UserActivity.model.js";
 import { commentModel } from "../../../../DB/models/User/UserActivity/Comments.model.js";
+import { followModel } from "../../../../DB/models/User/UserMainModel/SubModels/follower.model.js";
 
 
 
 //////////////////////////////////Basic-Activity-Operations(Create - delete - update - Display)//////////////////////////////////////
+
+//(Create)==>
 export const createTextActivity = asyncHandler(async (req, res, next) => {
     const { text } = req.body;
     const userId = req.user._id;
@@ -121,11 +124,11 @@ export const createVideoActivity = asyncHandler(async (req, res, next) => {
 });
 
 
+//(Display)==>
 export const getHybridFeed = asyncHandler(async (req, res, next) => {
 
-
-
     const userId = req.user._id;
+
 
 
     const page = parseInt(req.query.page) || 1;
@@ -134,32 +137,32 @@ export const getHybridFeed = asyncHandler(async (req, res, next) => {
 
 
 
+    const Cashkey = `Activities:${userId}:page:${page}22`;
+    const CachedData = await redisClient.get(Cashkey);
+
+    if (CachedData) {
+        return res.status(200).json({ status: "Success", source: "Cash", data: JSON.parse(CachedData) });
+    }
+    
+
 
     // 1-Get User following IDs
     const myFollowing = await followModel.find({ followerId: userId }).distinct("followingId");
     const authorIds = [...myFollowing, userId];
 
 
-     
-    const Cashkey = `Activities:${userId}:page:${page}`;
-    const CashedData = await redisClient.get(Cashkey);
-
-    if(CashedData){
-
-       return res.status(200).json({status:"Success",source:"Cash",data:JSON.parse(CashedData)});
-
-    }
-
- 
-
-
-
 
 
     // 2. bring in Activitys from User inner circle
-    let posts = await ActivityModel.find({ CreatedBy: { $in: authorIds } }).sort({ createdAt: -1 }).skip(skip).limit(limit)
-    .populate("CreatedBy", "firstName lastName userProfileImg userSubTitle")
-    .populate({path: "originalActivity",populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" }});
+    let posts = await ActivityModel.find({ CreatedBy: { $in: authorIds } })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("CreatedBy", "firstName lastName userProfileImg userSubTitle")
+        .populate({  path: "originalActivity",  populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" } 
+    });
+
+
 
 
 
@@ -171,33 +174,127 @@ export const getHybridFeed = asyncHandler(async (req, res, next) => {
         const remainingLimit = limit - posts.length;
         const excludedIds = posts.map(p => p._id); // To make sure not repeat the same posts
 
+
         const globalPosts = await ActivityModel.find({
-
-
-            _id: { $nin: excludedIds }, // To exclude the Posts that displayed in the past
-            CreatedBy: { $nin: authorIds } // to get people who's are outside following circle
-
-
-        }).sort({ createdAt: -1 }).limit(remainingLimit)
+            _id: { $nin: excludedIds },// To exclude the Posts that displayed in the past
+            CreatedBy: { $nin: authorIds }// to get people who's are outside following circle
+        })
+        .sort({ createdAt: -1 })
+        .limit(remainingLimit)
         .populate("CreatedBy", "firstName lastName userProfileImg userSubTitle")
-        .populate({ path: "originalActivity",
-            populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" }
-        });
+        .populate({  path: "originalActivity",  populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" } });
 
         posts = [...posts, ...globalPosts];
     }
-     
 
-    await redisClient.set(Cashkey,JSON.stringify(posts),{EX:3000})
+    if (posts.length > 0) {
+        await redisClient.set(Cashkey, JSON.stringify(posts), { EX: 300 });
+    }
+
+    res.status(200).json({  status: "success", results: posts.length,  data: posts  });
+});
+export const getUserActivity = asyncHandler(async (req, res, next) => {
+
+
+    const { userId } = req.params; // Logged in User Profile ID
+
+
+    
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
 
 
 
-    res.status(200).json({status: "success", results: posts.length,data: posts});
+    const UserActivitys = await ActivityModel.find({ CreatedBy: userId })
+    
+        .sort({ createdAt: -1 }) // the newer Activty First
+        .skip(skip)
+        .limit(limit)
+        .populate("CreatedBy", "firstName lastName userProfileImg userSubTitle")
+        .populate({ path: "originalActivity",populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" }
+
+    });
+
+
+
+    res.status(200).json({status: "success", results: UserActivitys.length, data: UserActivitys});
 });
 
 
+//(Update)==>
+export const updateActivity = asyncHandler(async (req, res, next) => {
+
+    const { postId } = req.params;
+    const { text } = req.body;
+    const userId = req.user._id;
+
+    // Check if Activity Exists
+    const activity = await ActivityModel.findById(postId);
+    if (!activity) return next(new Error("Activity not found", { cause: 404 }));
 
 
+
+    if (activity.CreatedBy.toString() !== userId.toString()) {
+        return next(new Error("You are not authorized to update this post", { cause: 403 }));
+    }
+
+    // update Activity Text
+    activity.text = text || activity.text;
+    await activity.save();
+
+    // clear cach
+    const keys = await redisClient.keys("Activities:*");
+    if (keys.length > 0) await redisClient.del(keys);
+
+    res.status(200).json({  status: "success",  message: "Activity updated successfully",  data: activity  });
+});
+//(Delete)==>    
+export const deleteActivity = asyncHandler(async (req, res, next) => {
+
+
+
+    const { postId } = req.params;
+    const userId = req.user._id;
+
+    // Check If Activity Exists
+    const activity = await ActivityModel.findById(postId);
+    if (!activity) return next(new Error("Activity not found", { cause: 404 }));
+
+
+
+    // Check If User is authorized
+    if (activity.CreatedBy.toString() !== userId.toString()) {
+        return next(new Error("You are not authorized to delete this post", { cause: 403 }));
+    }
+    if (activity.media?.public_id) {
+        await cloudinary.uploader.destroy(activity.media.public_id, {resource_type: activity.postType === "video" ? "video" : "image"});
+    }
+    if (activity.videoCover?.public_id) {
+        await cloudinary.uploader.destroy(activity.videoCover.public_id);
+    }
+
+    
+    // delete all Comments on the activity
+    await commentModel.deleteMany({ postId });
+    // delete the activity
+    await ActivityModel.findByIdAndDelete(postId);
+
+
+
+    //Clear Comments Cach
+    const CommentsCachkey =await redisClient.keys("Comments:*");
+    if(CommentsCachkey.length>0) {await redisClient.del(CommentsCachkey)}
+
+
+    //Clear Activties Cach
+    const ActivitiesCachkeys = await redisClient.keys("Activities:*");
+    if (ActivitiesCachkeys.length > 0) await redisClient.del(ActivitiesCachkeys);
+
+    
+
+    res.status(200).json({ status: "success", message: "Activity deleted successfully" });
+});
 
 
 
@@ -227,11 +324,27 @@ export const ActivityToggleLike = asyncHandler(async (req, res, next) => {
     if (isLiked) {
         // if User Liked post and wants to Unlike
         post.likes.pull(userId);
+         
+        await ActivityModel.findByIdAndUpdate(postId,{
+            $inc:{LikesCount:-1}
+        })
+
+
     } else {
         // if User Unliked post by mistake and he wants to like Again
         post.likes.push(userId);
+
+        await ActivityModel.findByIdAndUpdate(postId,{
+            $inc:{LikesCount:1}
+        })
     }
 
+    //clear cash
+    const key =await redisClient.keys("Activities:*");
+    if(key.length>0) {await redisClient.del(key)}
+
+
+    
     await post.save();
 
     res.status(200).json({status: "success", message: isLiked ? "Like removed" : "Like added", likesCount: post.likes.length });
@@ -267,13 +380,17 @@ export const addComment = asyncHandler(async (req, res, next) => {
 
     // to display user data in the comment
     const commentData = await commentModel.findById(newComment._id).populate("userId", "firstName lastName userProfileImg userSubTitle");
+
+    await ActivityModel.findByIdAndUpdate(ActivityId,{ $inc:{CommentsCount:1}},{new:true})
     
 
 
     const key =await redisClient.keys("Comments:*");
     if(key.length>0) {await redisClient.del(key)}
 
-
+    
+    const Activiykey =await redisClient.keys("Activities:*");
+    if(Activiykey.length>0) {await redisClient.del(Activiykey)}
 
 
     res.status(201).json({status: "success",message: "Comment added successfully",data: commentData});
@@ -363,11 +480,7 @@ export const updateComment = asyncHandler(async (req, res, next) => {
     const key =await redisClient.keys("Comments:*");
     if(key.length>0) {await redisClient.del(key)}
 
-    res.status(200).json({
-        status: "success",
-        message: "Comment updated successfully",
-        data: comment
-    });
+    res.status(200).json({status: "success", message: "Comment updated successfully", data: comment});
 });
 export const deleteComment = asyncHandler(async (req, res, next) => {
     const { commentId } = req.params;
@@ -385,14 +498,17 @@ export const deleteComment = asyncHandler(async (req, res, next) => {
 
     await commentModel.findByIdAndDelete(commentId);
 
+    await ActivityModel.findByIdAndUpdate(comment.ActivityId,{ $inc:{CommentsCount:-1}},{new:true})
+
 
     const key =await redisClient.keys("Comments:*");
     if(key.length>0) {await redisClient.del(key)}
 
-    res.status(200).json({
-        status: "success",
-        message: "Comment deleted successfully"
-    });
+    const Activiykey =await redisClient.keys("Activities:*");
+    if(Activiykey.length>0) {await redisClient.del(Activiykey)}
+
+
+    res.status(200).json({ status: "success", message: "Comment deleted successfully" });
 });
 //======
 
@@ -430,9 +546,10 @@ export const createRepost = asyncHandler(async (req, res, next) => {
     });
      
 
-
-    const key =await redisClient.keys("Activitys:*");
+    
+    const key =await redisClient.keys("Activities:*");
     if(key.length>0) {await redisClient.del(key)}
+
 
     res.status(201).json({status: "success",message: "Activity reposted successfully", data: fullRepostData});
 });

@@ -18,10 +18,19 @@ const ActivitySchema = new Schema({
       secure_url: String,
       public_id: String,
     },
+    CommentsCount: { 
+      type: Number,
+      default: 0 
+    },
     likes: [{
       type: Types.ObjectId,
       ref: "user",
     }],
+    LikesCount: { 
+      type: Number,
+      default: 0 
+    },
+
     repostsCount: { 
       type: Number,
       default: 0 
