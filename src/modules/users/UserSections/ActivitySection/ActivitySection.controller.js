@@ -5,6 +5,9 @@ import cloudinary from "../../../../utils/Cloudinary/Cloudinary.js"
 import { ActivityModel } from "../../../../../DB/models/User/UserActivity/UserActivity.model.js";
 import { commentModel } from "../../../../../DB/models/User/UserActivity/Comments.model.js";
 import { followModel } from "../../../../../DB/models/User/UserMainModel/SubModels/follower.model.js";
+import MyPusher  from "../../../../service/Pusher/PusherConfig.js";
+import { userModel } from "../../../../../DB/models/User/UserMainModel/user.model.js";
+import { notificationModel } from "../../../../../DB/models/User/UserMainModel/notifications/Notifications.model.js";
 
 
 
@@ -308,44 +311,64 @@ export const deleteActivity = asyncHandler(async (req, res, next) => {
 /////////////////////Activitys-Operations(Like-Comment-Repost)/////////////////////////////
 //==>Like
 export const ActivityToggleLike = asyncHandler(async (req, res, next) => {
+
+
     const { postId } = req.body;
-    const userId = req.user._id;
+    const userId = req.user._id; //Logged in User
 
      
 
     const post = await ActivityModel.findById(postId);
-    if (!post) {
-        return next(new Error("Post not found", { cause: 404 }));
-    }
+    if (!post) { return next(new Error("Post not found", { cause: 404 })); }
 
     // check if User Already liked the post
     const isLiked = post.likes.includes(userId);
+    let messageContent = "";
+
+
+
+
+
 
     if (isLiked) {
-        // if User Liked post and wants to Unlike
+        //  Unlike
         post.likes.pull(userId);
+        post.LikesCount = Math.max(0, post.LikesCount - 1);
+
          
-        await ActivityModel.findByIdAndUpdate(postId,{
-            $inc:{LikesCount:-1}
-        })
-
-
+         
     } else {
-        // if User Unliked post by mistake and he wants to like Again
+        // to like 
         post.likes.push(userId);
+        post.LikesCount += 1;
 
-        await ActivityModel.findByIdAndUpdate(postId,{
-            $inc:{LikesCount:1}
-        })
+     
+        if (post.CreatedBy.toString() !== userId.toString()) {
+           const LikedUser = await userModel.findById(userId).select("firstName userProfileImg");
+           messageContent = post.LikesCount <= 1  ? `${LikedUser.firstName} reacted to your activity`: `${LikedUser.firstName} and others reacted to your activity`;
+           const channelName = post.CreatedBy.toString();
+
+           MyPusher.trigger(channelName, "UserNotification", {
+                UserIMG: LikedUser.userProfileImg?.public_id,
+                Message: messageContent
+            });
+           
+     
+            
+
+            await notificationModel.create({ recipient: post.CreatedBy, sender: userId, type: "like", content: messageContent });
+        }
+            
+        
     }
+      
+    await post.save();
+
 
     //clear cash
     const key =await redisClient.keys("Activities:*");
-    if(key.length>0) {await redisClient.del(key)}
+    if(key.length > 0) {await redisClient.del(key)}
 
-
-    
-    await post.save();
 
     res.status(200).json({status: "success", message: isLiked ? "Like removed" : "Like added", likesCount: post.likes.length });
 });
@@ -358,7 +381,9 @@ export const addComment = asyncHandler(async (req, res, next) => {
 
     const { ActivityId } = req.body;
     const { text } = req.body;
-    const userId = req.user._id;
+    const userId = req.user._id; // Logged in User
+
+
 
     //Check if User add text
     if (!text || text.trim().length === 0) {
@@ -367,11 +392,7 @@ export const addComment = asyncHandler(async (req, res, next) => {
 
     // Check if post exists before add comment
     const post = await ActivityModel.findOne({_id:ActivityId});
-    if (!post) {
-   
-        
-        return next(new Error("Activity not found", { cause: 404 }));
-    }
+    if (!post) { return next(new Error("Activity not found", { cause: 404 })); }
   
  
     
@@ -381,10 +402,31 @@ export const addComment = asyncHandler(async (req, res, next) => {
     // to display user data in the comment
     const commentData = await commentModel.findById(newComment._id).populate("userId", "firstName lastName userProfileImg userSubTitle");
 
+
+
+
+    if (post.CreatedBy.toString() !== userId.toString()) {
+    // increse Post comment count
     await ActivityModel.findByIdAndUpdate(ActivityId,{ $inc:{CommentsCount:1}},{new:true})
-    
 
 
+    // Get user data who add comment
+    const CommentedUser = await userModel.findById(userId).select("firstName userProfileImg")
+
+
+    const MessageContent = post.CommentsCount < 1 ? `${CommentedUser.firstName} added new Comment on you post` :`${CommentedUser.firstName} and others added new Comment on you post`;
+
+
+    await MyPusher.trigger(post.CreatedBy.toString(),"newComment",{
+        UserImg:CommentedUser.userProfileImg?.public_id,
+        MessageContent
+    })
+
+
+   
+    await notificationModel.create({ recipient: post.CreatedBy, sender: userId, type: "comment", content: MessageContent });
+
+}
     const key =await redisClient.keys("Comments:*");
     if(key.length>0) {await redisClient.del(key)}
 
@@ -396,20 +438,41 @@ export const addComment = asyncHandler(async (req, res, next) => {
     res.status(201).json({status: "success",message: "Comment added successfully",data: commentData});
 });
 export const toggleCommentLike = asyncHandler(async (req, res, next) => {
+
+
     const { commentId } = req.body;
-    const userId = req.user._id;
+    const userId = req.user._id; // Logged in user
 
     const comment = await commentModel.findById(commentId);
-    if (!comment) {
-        return next(new Error("Comment not found", { cause: 404 }));
-    }
+    if (!comment) {return next(new Error("Comment not found", { cause: 404 })); }
 
     const isLiked = comment.likes.includes(userId);
 
     if (isLiked) {
         comment.likes.pull(userId);
+        comment.LikesCount = Math.max(0,comment.LikesCount -1)
     } else {
         comment.likes.push(userId);
+        comment.LikesCount += 1
+          
+          
+        if(comment.userId.toString() !== userId.toString()){
+
+         
+
+            const LikedUser= await userModel.findById(userId).select("firstName userProfileImg");
+            const MessageContent = comment.LikesCount < 1 ? `${LikedUser.firstName} Liked your Comment`:`${LikedUser.firstName} and others Liked your Comment`
+            
+            await MyPusher.trigger(comment.userId.toString(),"CommentLike",{
+                UserImg:LikedUser.userProfileImg?.public_id,
+                Message:MessageContent
+            })
+            
+            await notificationModel.create({ recipient: comment.userId, sender: userId, type: "CommentLike", content: MessageContent });
+
+        }
+
+
     }
 
     await comment.save();

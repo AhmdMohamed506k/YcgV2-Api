@@ -539,9 +539,8 @@ export const followUser = asyncHandler(async(req,res,next)=>{
 
    
     const existingFollow = await followModel.findOne({ followerId, followingId });
-    if (existingFollow) {
-      return next(new Error("You are already following this user",400))
-    }
+    if (existingFollow) { return next(new Error("You are already following this user",400))}
+
 
     await followModel.create({ followerId, followingId });
 
@@ -576,7 +575,6 @@ export const recordProfileView = asyncHandler(async(req,res,next)=>{
 
 
     const viewCacheKey = `view:${viewerId}:${profileId}`;
-
     const isViewedRecently = await redisClient.get(viewCacheKey);
 
 
@@ -588,10 +586,8 @@ export const recordProfileView = asyncHandler(async(req,res,next)=>{
 
       await redisClient.set(viewCacheKey, "true", { EX: 3600  });
 
-      console.log("View recorded in DB and cached in Redis");
-    } else {
-      console.log("View already exists in Redis, skipping DB write");
-    }
+     
+    } 
 
     res.status(200).json({ status: "success", message: "View processed" });
 

@@ -18,7 +18,10 @@ const commentSchema = new Schema({
     },
    
     likes: [{ type: Types.ObjectId, ref: "user" }],
-
+    LikesCount: { 
+      type: Number,
+      default: 0 
+    },
 
   },{ 
     timestamps: true,

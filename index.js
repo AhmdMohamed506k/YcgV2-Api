@@ -1,3 +1,5 @@
+
+import 'dotenv/config'
 import express  from 'express';
 import connectionDB from './DB/contectionDB.js';
 import cors from 'cors';
@@ -10,8 +12,7 @@ import CourseSectionRouter from './src/modules/users/UserSections/CoursesSection
 import ProjectSectionRouter from './src/modules/users/UserSections/ProjectSection/ProjectSection.routes.js';
 import LicensesAndcertificationsRouter from './src/modules/users/UserSections/LicensesAndcertifications/LicensesAndcertifications.routes.js';
 import ActivityRouter from './src/modules/users/UserSections/ActivitySection/ActivitySection.routes.js';
-import {initSocket} from './src/service/SocketIO/socket.js';
-import 'dotenv/config'
+
 
 export const app = express()
 const port = process.env.port || 3000
@@ -22,7 +23,7 @@ const port = process.env.port || 3000
 
 app.use(express.json());
 app.use(cors({origin : "*"}));
-initSocket()
+
 
 
 

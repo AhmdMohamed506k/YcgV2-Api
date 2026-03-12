@@ -13,16 +13,14 @@ const notificationSchema = new Schema({
     },
     type: {
       type: String,
-      enum: ["message", "like", "follow", "repost"],
+      enum: ["message", "like", "follow", "repost","comment","CommentLike"],
       required: true,
     },
     content: {
       type: String,
       required: true,
     },
-    relatedId: {
-      type: Types.ObjectId,
-    },
+
     isRead: {
       type: Boolean,
       default: false,
