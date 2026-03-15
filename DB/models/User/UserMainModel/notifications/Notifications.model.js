@@ -6,6 +6,10 @@ const notificationSchema = new Schema({
       ref: "User",
       required: true,
     },
+    senderProfileImg:{
+       secure_url: { type: String, default: null },
+      public_id: { type: String, default: null },
+    },
     sender: {
       type: Types.ObjectId,
       ref: "User",
@@ -20,7 +24,6 @@ const notificationSchema = new Schema({
       type: String,
       required: true,
     },
-
     isRead: {
       type: Boolean,
       default: false,

@@ -12,6 +12,7 @@ import CourseSectionRouter from './src/modules/users/UserSections/CoursesSection
 import ProjectSectionRouter from './src/modules/users/UserSections/ProjectSection/ProjectSection.routes.js';
 import LicensesAndcertificationsRouter from './src/modules/users/UserSections/LicensesAndcertifications/LicensesAndcertifications.routes.js';
 import ActivityRouter from './src/modules/users/UserSections/ActivitySection/ActivitySection.routes.js';
+import NotificationRouter from './src/modules/users/Notifications/Notifications.routes.js';
 
 
 export const app = express()
@@ -28,6 +29,7 @@ app.use(cors({origin : "*"}));
 
 
 app.use("/api/v1/user", userRouter); 
+app.use("/api/v1/user/Notifications", NotificationRouter);
 app.use("/api/v1/AboutUser", AboutSectionRouter); 
 app.use("/api/v1/UserExperiences", ExperienceSectionRouter);
 app.use("/api/v1/UserEducation", EducationSectionRouter); 
@@ -36,6 +38,7 @@ app.use("/api/v1/UserCourse", CourseSectionRouter);
 app.use("/api/v1/UserProjects", ProjectSectionRouter); 
 app.use("/api/v1/UserLicenses", LicensesAndcertificationsRouter); 
 app.use("/api/v1/UserActivity", ActivityRouter); 
+ 
 
 
 

@@ -344,19 +344,24 @@ export const ActivityToggleLike = asyncHandler(async (req, res, next) => {
 
      
         if (post.CreatedBy.toString() !== userId.toString()) {
+
            const LikedUser = await userModel.findById(userId).select("firstName userProfileImg");
            messageContent = post.LikesCount <= 1  ? `${LikedUser.firstName} reacted to your activity`: `${LikedUser.firstName} and others reacted to your activity`;
+          
+           
+         
            const channelName = post.CreatedBy.toString();
 
            MyPusher.trigger(channelName, "UserNotification", {
                 UserIMG: LikedUser.userProfileImg?.public_id,
                 Message: messageContent
             });
-           
+         
+            
      
             
 
-            await notificationModel.create({ recipient: post.CreatedBy, sender: userId, type: "like", content: messageContent });
+            await notificationModel.create({ recipient: post.CreatedBy, sender: userId,senderProfileImg:LikedUser.userProfileImg, type: "like", content: messageContent });
         }
             
         
@@ -424,7 +429,7 @@ export const addComment = asyncHandler(async (req, res, next) => {
 
 
    
-    await notificationModel.create({ recipient: post.CreatedBy, sender: userId, type: "comment", content: MessageContent });
+    await notificationModel.create({ recipient: post.CreatedBy, sender: userId, senderProfileImg:CommentedUser.userProfileImg, type: "comment", content: MessageContent });
 
 }
     const key =await redisClient.keys("Comments:*");
@@ -468,7 +473,7 @@ export const toggleCommentLike = asyncHandler(async (req, res, next) => {
                 Message:MessageContent
             })
             
-            await notificationModel.create({ recipient: comment.userId, sender: userId, type: "CommentLike", content: MessageContent });
+            await notificationModel.create({ recipient: comment.userId, sender: userId,senderProfileImg:LikedUser.userProfileImg ,type: "CommentLike", content: MessageContent });
 
         }
 
