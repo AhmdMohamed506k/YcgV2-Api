@@ -12,12 +12,12 @@ const messageSchema = new Schema({
     },
     senderId: { 
         type: Types.ObjectId, 
-        ref: 'User', 
+        ref: 'user', 
         required: true 
     },
     receiverId: { 
         type: Types.ObjectId, 
-        ref: 'User', 
+        ref: 'user', 
         required: true 
     },
     text: { 

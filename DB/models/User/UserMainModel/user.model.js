@@ -85,6 +85,10 @@ const userSchema = new Schema(
       enum: ["online", "offline"],
       default: "offline",
     },
+    lastSeen:{
+      type:Date,
+      default:Date.now
+    },
     location: {
       country: {
         type: String,

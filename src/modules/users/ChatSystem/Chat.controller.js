@@ -1,3 +1,4 @@
+import { asyncHandler } from "../../../middleware/asyncHandler/asyncHandler.js";
 
 import { chatModel } from "../../../../DB/models/User/ChatSystem/Chat.model.js";
 import { messageModel } from "../../../../DB/models/User/ChatSystem/Message.model.js";
@@ -6,6 +7,7 @@ import MyPusher from "../../../service/Pusher/PusherConfig.js";
 
 
 export const sendMessage = asyncHandler(async (req, res, next) => {
+
     const { receiverId, text } = req.body;
     const senderId = req.user._id; //loggedIn user
     const fullUserName = req.user.firstName + req.user.lastName //loggedIn User Full name
@@ -30,7 +32,7 @@ export const sendMessage = asyncHandler(async (req, res, next) => {
         text
     })
 
-    chat.lastMessage = newMessage.text;
+    chat.lastMessage = newMessage._id;
     chat.senderId = newMessage.senderId;
     chat.receiverId=newMessage.receiverId;
     chat.MessagIsReaded=false
@@ -46,7 +48,7 @@ export const sendMessage = asyncHandler(async (req, res, next) => {
             _id:newMessage._id,
             text:newMessage.text,
             senderId:senderId,
-            senderName:req.user.fullUserName,
+            senderName:fullUserName,
             senderProfileImg:req.user.userProfileImg,
             createdAt:newMessage.createdAt
         },
@@ -57,20 +59,49 @@ export const sendMessage = asyncHandler(async (req, res, next) => {
     res.status(201).json({ status: "success", message: "Message sent successfully", data: newMessage});
 });
 
-export const MarkChatAsReaded = asyncHandler(async (req,res,next)=>{
-
-    const {chatId} = req.body;
+export const GetMyChats = asyncHandler(async(req,res,next)=>{
 
 
-    const chat = await chatModel.findByIdAndUpdate(chatId,{$set:{newMessagesCount:0 , MessagIsReaded:false}},{new:true});
-
-    const otherParticipant = chat.participants.find((id)=> id.toString() !== req.user._id.toString())
-
-    await MyPusher.trigger(`user-${otherParticipant}`,"message-seen",{
-        chatId: chat._id,
-        seenBy :req.user._id
+    const chats = await chatModel.find({participants:req.user._id}).populate({
+        path:"participants",
+        select:("user","firstName lastName userProfileImg userSubTitle status lastSeen")
     })
+    .populate("lastMessage").sort({updatedAt:-1});
 
-    res.status(200).json({ status: "success", message: "Chat marked as read" });
+    res.status(200).json({status:"success",data: chats})
 
 })
+
+export const GetSpecificChatHistory = asyncHandler(async (req, res, next) => {
+    const { chatId } = req.params;
+    const userId = req.user._id;
+
+   
+    const MessagesHistory = await messageModel.find({ chatId })
+    .populate("senderId", "firstName lastName userProfileImg")
+    .sort({ createdAt: 1 });
+
+  
+    const chat = await chatModel.findOneAndUpdate(
+        { _id: chatId, receiverId: userId }, 
+        { $set: { newMessagesCount: 0, MessagIsReaded: true } },
+        { new: true }
+    );
+
+  
+    const updateResult = await messageModel.updateMany(
+        { chatId, senderId: { $ne: userId }, status: "sent" },
+        { $set: { status: "seen" } }
+    );
+
+    
+    if (updateResult.modifiedCount > 0) {
+        const otherParticipant = chat?.participants.find(id => id.toString() !== userId.toString());
+
+        if (otherParticipant) {
+            await MyPusher.trigger(`user-${otherParticipant}`, "messages-seen", { chatId });
+        }
+    }
+
+    res.status(200).json({ status: "success", data: MessagesHistory });
+});

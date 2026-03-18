@@ -8,9 +8,9 @@ const ChatRouter = Router();
 ChatRouter.post("/sendMessage", auth, chatController.sendMessage);
 
 
-ChatRouter.get("/history/:chatId", auth, chatController.getChatHistory);
+ChatRouter.get("/MyChat", auth, chatController.GetMyChats);
 
 
-ChatRouter.get("/myChats", auth, chatController.getMyChats);
+ChatRouter.get("/history/:chatId", auth, chatController.GetSpecificChatHistory);
 
 export default ChatRouter;

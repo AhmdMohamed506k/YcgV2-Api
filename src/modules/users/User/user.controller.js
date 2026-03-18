@@ -689,6 +689,26 @@ export const getPeopleYouMayKnow = asyncHandler(async (req, res, next) => {
 //===
 
 
+
+
+
+//==> RefreshUserStatus
+export const refreshStatus = asyncHandler(async (req, res, next) => {
+    const userId = req.user._id;
+
+    await userModel.findByIdAndUpdate(userId, {
+        status: "online",
+        lastSeen: new Date() 
+    });
+
+    res.status(200).json({ status: "success", message: "Status heartbeat received" });
+});
+
+
+
+
+
+
 export const addLoggedInUserSkills = asyncHandler(async (req, res, next) => {
   const { skill } = req.body;
 
@@ -708,6 +728,7 @@ export const addLoggedInUserSkills = asyncHandler(async (req, res, next) => {
 
   res.status(201).json({ msg: "added Successfully" });
 });
+
 
 // ==============AdminApis=================
 export const getAllUsers = asyncHandler(async (req, res, next) => {

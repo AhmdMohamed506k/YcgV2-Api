@@ -5,7 +5,7 @@ import { Schema, model, Types } from "mongoose";
 const chatSchema = new Schema({
     participants: [{ // Channel ID
         type: Types.ObjectId, 
-        ref: 'User', 
+        ref: 'user', 
         required: true 
     }],
     senderId: { 
@@ -30,6 +30,7 @@ const chatSchema = new Schema({
         type: Types.ObjectId, 
         ref: 'Message' 
     }
+
 }, { timestamps: true });
 
 

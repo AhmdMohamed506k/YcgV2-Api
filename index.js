@@ -13,6 +13,7 @@ import ProjectSectionRouter from './src/modules/users/UserSections/ProjectSectio
 import LicensesAndcertificationsRouter from './src/modules/users/UserSections/LicensesAndcertifications/LicensesAndcertifications.routes.js';
 import ActivityRouter from './src/modules/users/UserSections/ActivitySection/ActivitySection.routes.js';
 import NotificationRouter from './src/modules/users/Notifications/Notifications.routes.js';
+import ChatRouter from './src/modules/users/ChatSystem/Chat.routes.js';
 
 
 export const app = express()
@@ -29,6 +30,7 @@ app.use(cors({origin : "*"}));
 
 
 app.use("/api/v1/user", userRouter); 
+app.use("/api/v1/user/Chat", ChatRouter);
 app.use("/api/v1/user/Notifications", NotificationRouter);
 app.use("/api/v1/AboutUser", AboutSectionRouter); 
 app.use("/api/v1/UserExperiences", ExperienceSectionRouter);

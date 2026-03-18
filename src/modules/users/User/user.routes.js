@@ -67,6 +67,11 @@ router.get('/getMyViewers', auth, us.getMyViewers);
 router.post('/followUser', auth, us.followUser);
 router.delete('/unfollowUser', auth, us.unfollowUser);
 
+//==> RefreshUserStatus
+router.get("/refresh-status", auth, us.refreshStatus);
+
+
+
 
 
 
