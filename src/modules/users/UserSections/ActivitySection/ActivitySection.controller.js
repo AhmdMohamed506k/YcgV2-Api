@@ -391,9 +391,7 @@ export const addComment = asyncHandler(async (req, res, next) => {
 
 
     //Check if User add text
-    if (!text || text.trim().length === 0) {
-        return next(new Error("Comment text is required", { cause: 400 }));
-    }
+    if (!text || text.trim().length === 0) {return next(new Error("Comment text is required", { cause: 400 })); }
 
     // Check if post exists before add comment
     const post = await ActivityModel.findOne({_id:ActivityId});
@@ -431,7 +429,8 @@ export const addComment = asyncHandler(async (req, res, next) => {
    
     await notificationModel.create({ recipient: post.CreatedBy, sender: userId, senderProfileImg:CommentedUser.userProfileImg, type: "comment", content: MessageContent });
 
-}
+    }
+   
     const key =await redisClient.keys("Comments:*");
     if(key.length>0) {await redisClient.del(key)}
 

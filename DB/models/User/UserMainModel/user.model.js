@@ -57,6 +57,13 @@ const userSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    premiumUntil: {
+      type: Date,
+      default: null,
+    },
+    stripeCustomerId: {
+      type: String,
+    },
     userCV: {
       secure_url: { type: String, default: null },
       public_id: { type: String, default: null },
@@ -85,9 +92,9 @@ const userSchema = new Schema(
       enum: ["online", "offline"],
       default: "offline",
     },
-    lastSeen:{
-      type:Date,
-      default:Date.now
+    lastSeen: {
+      type: Date,
+      default: Date.now,
     },
     location: {
       country: {
@@ -112,7 +119,6 @@ const userSchema = new Schema(
     userSections: {
       userAboutSection: [aboutSectionSchema],
       userLanguageSection: [LanguagesSectionSchema],
-    
     },
   },
   {
@@ -120,7 +126,7 @@ const userSchema = new Schema(
     versionKey: false,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-  }
+  },
 );
 
 userSchema.virtual("myFollowers", {

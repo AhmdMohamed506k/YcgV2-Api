@@ -8,6 +8,7 @@ import { userModel } from "../../../../DB/models/User/UserMainModel/user.model.j
 import { followModel } from "../../../../DB/models/User/UserMainModel/SubModels/follower.model.js";
 import { viewModel } from "../../../../DB/models/User/UserMainModel/SubModels/viewer.model.js";
 import redisClient  from "../../../utils/redisClient/redisClient.js";
+import MyPusher from "../../../service/Pusher/PusherConfig.js";
 
 // =============Register&CreateAccountApis==================
 export const Register = asyncHandler(async (req, res, next) => {
@@ -543,6 +544,10 @@ export const followUser = asyncHandler(async(req,res,next)=>{
 
 
     await followModel.create({ followerId, followingId });
+    
+  
+
+
 
     res.status(200).json({ status: "success", message: "User followed successfully" });
 });
@@ -688,10 +693,6 @@ export const getPeopleYouMayKnow = asyncHandler(async (req, res, next) => {
 });
 //===
 
-
-
-
-
 //==> RefreshUserStatus
 export const refreshStatus = asyncHandler(async (req, res, next) => {
     const userId = req.user._id;
@@ -703,12 +704,9 @@ export const refreshStatus = asyncHandler(async (req, res, next) => {
 
     res.status(200).json({ status: "success", message: "Status heartbeat received" });
 });
+//===
 
-
-
-
-
-
+//==> AddSkills
 export const addLoggedInUserSkills = asyncHandler(async (req, res, next) => {
   const { skill } = req.body;
 
@@ -728,6 +726,17 @@ export const addLoggedInUserSkills = asyncHandler(async (req, res, next) => {
 
   res.status(201).json({ msg: "added Successfully" });
 });
+//===
+
+
+
+
+
+
+
+
+
+
 
 
 // ==============AdminApis=================
