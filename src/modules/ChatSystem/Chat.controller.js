@@ -1,8 +1,8 @@
-import { asyncHandler } from "../../../middleware/asyncHandler/asyncHandler.js";
+import { asyncHandler } from "../../middleware/asyncHandler/asyncHandler.js";
 
-import { chatModel } from "../../../../DB/models/User/ChatSystem/Chat.model.js";
-import { messageModel } from "../../../../DB/models/User/ChatSystem/Message.model.js";
-import MyPusher from "../../../service/Pusher/PusherConfig.js";
+import { chatModel } from "../../../DB/models/ChatSystem/Chat.model.js";
+import { messageModel } from "../../../DB/models/ChatSystem/Message.model.js";
+import MyPusher from "../../service/Pusher/PusherConfig.js";
 
 
 

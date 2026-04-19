@@ -8,15 +8,11 @@ const companySchema = new Schema(
       unique: true,
       trim: true,
     },
-    companyEmail: {
+    ContactEmail: {
       type: String,
       required: [true, "Company email is Required"],
       unique: true,
       lowercase: true,
-    },
-    password: {
-      type: String,
-      required: true,
     },
     Industry: {
       type: String,
@@ -29,82 +25,108 @@ const companySchema = new Schema(
     },
     OrganizationType: {
       type: String,
-      enum: ["public Company", "Government agency", "Nonprofit", "Sole proprietorship", "Privately held", "Partnership"],
+      enum: [
+        "public Company",
+        "Government agency",
+        "Nonprofit",
+        "Sole proprietorship",
+        "Privately held",
+        "Partnership",
+      ],
       default: "public Company",
     },
     Website: {
       type: String,
       match: [/^https?:\/\/.+/, "Please Enter valid URL"],
     },
-    location: {
+    Location: {
       city: String,
       country: String,
       address: String,
     },
-    logo: {
+    Logo: {
       secure_url: String,
       public_id: String,
     },
-    description: {
+    Description: {
       type: String,
-      minLength: [50, "Description should be more than 50 words"],
+ 
     },
-    hrManager: {
+    HrManager: {
       type: Schema.Types.ObjectId,
-      ref: "User", 
+      ref: "User",
       required: true,
     },
-    isVerified: {
+    Admins: [
+      {
+        user: {
+          type: Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        role: {
+          type: String,
+          enum: ["superAdmin", "admin", "editor"],
+          default: "admin",
+        },
+      },
+    ],
+    Employees: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    IsVerified: {
       type: Boolean,
-      default: false, 
+      default: false,
     },
   },
-  { timestamps: true, 
-    toJSON:{virtuals:true},
-    toObject:{virtuals:true}
+  {
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   },
 );
 
-
-companySchema.index({ companyName: "text", industry: "text" });
+companySchema.index({ CompanyName: "text", Industry: "text" });
 
 ///////////////////Followers/////////////////////////
 
-companySchema.virtual("CompanyFollowers",{
-    ref:"CompanyFollow",
-    localField:"_id",
-    foreignField:"FollowerId",
-
-})
-companySchema.virtual("CompanyFollowersCount",{
-    ref:"CompanyFollow",
-    localField:"_id",
-    foreignField:"FollowerId",
-    count:true
-
-})
-
+companySchema.virtual("CompanyFollowers", {
+  ref: "Follow",
+  localField: "_id",
+  foreignField: "followingId",
+});
+companySchema.virtual("CompanyFollowersCount", {
+  ref: "Follow",
+  localField: "_id",
+  foreignField: "followingId",
+  count: true,
+});
 
 ///////////////////Following/////////////////////////
 
-
-companySchema.virtual("CompanyFollowing",{
-    ref:"CompanyFollow",
-    localField:"_id",
-    foreignField:"FollowingId",
-
-})
-companySchema.virtual("CompanyFollowingCount",{
-    ref:"CompanyFollow",
-    localField:"_id",
-    foreignField:"FollowingId",
-    count:true
-
-})
+companySchema.virtual("CompanyFollowing", {
+  ref: "Follow",
+  localField: "_id",
+  foreignField: "followerId",
+});
+companySchema.virtual("CompanyFollowingCount", {
+  ref: "Follow",
+  localField: "_id",
+  foreignField: "followerId",
+  count: true,
+});
+///////////////////Views/////////////////////////
 
 
-
-
+companySchema.virtual("CompanyViewsCount", {
+  ref: "View",
+  localField: "_id",
+  foreignField: "profileId",
+  count: true,
+});
 
 const companyModel = model("company", companySchema);
 export default companyModel;

@@ -1,5 +1,5 @@
-import { asyncHandler } from "../../../middleware/asyncHandler/asyncHandler.js";
-import {notificationModel} from "../../../../DB/models/User/UserMainModel/notifications/Notifications.model.js";
+import { asyncHandler } from "../../middleware/asyncHandler/asyncHandler.js";
+import {notificationModel} from "../../../DB/models/notifications/Notifications.model.js";
 
 
 

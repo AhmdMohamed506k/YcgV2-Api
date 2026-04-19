@@ -1,131 +1,95 @@
 import { nanoid } from "nanoid";
-import redisClient from "../../../../utils/redisClient/redisClient.js";
-import {asyncHandler} from "../../../../middleware/asyncHandler/asyncHandler.js"
-import cloudinary from "../../../../utils/Cloudinary/Cloudinary.js"
-import { ActivityModel } from "../../../../../DB/models/User/UserActivity/UserActivity.model.js";
-import { commentModel } from "../../../../../DB/models/User/UserActivity/Comments.model.js";
-import { followModel } from "../../../../../DB/models/User/UserMainModel/SubModels/follower.model.js";
-import MyPusher  from "../../../../service/Pusher/PusherConfig.js";
-import { userModel } from "../../../../../DB/models/User/UserMainModel/user.model.js";
-import { notificationModel } from "../../../../../DB/models/User/UserMainModel/notifications/Notifications.model.js";
+import redisClient from "../../utils/redisClient/redisClient.js";
+import {asyncHandler} from "../../middleware/asyncHandler/asyncHandler.js"
+import cloudinary from "../../utils/Cloudinary/Cloudinary.js"
+import { ActivityModel } from "../../../DB/models/Activitys/Activitys.model.js";
+import { commentModel } from "../../../DB/models/Activitys/Comments.model.js";
+import { followModel } from "../../../DB/models/Follow/follow.model.js";
+import MyPusher  from "../../service/Pusher/PusherConfig.js";
+import { userModel } from "../../../DB/models/User/UserMainModel/user.model.js";
+import { notificationModel } from "../../../DB/models/notifications/Notifications.model.js";
 
 
 
 //////////////////////////////////Basic-Activity-Operations(Create - delete - update - Display)//////////////////////////////////////
 
 //(Create)==>
-export const createTextActivity = asyncHandler(async (req, res, next) => {
+export const createUserActivity = asyncHandler(async (req, res, next) => {
     const { text } = req.body;
     const userId = req.user._id;
+    const files = req.files; 
+  
+    
+   
+    let activityData = {
+        text,
+        ActivityType: "text",
+        media:null,
+        videoCover:null,
+        creatorType: "user",
+        CreatedBy: userId,
+        addedBy: userId,
+        isRepost: false
+    };
 
- 
-    if (!text || text.trim().length === 0) {
+   
+    const randomId = nanoid();
+    const folderPath = `Ycg/users/${userId}/${req.user.firstName}_${req.user.lastName}/UserActivity`;
+
+  
+    if (files) {
+
+        if (files.video?.[0]) {
+  
+
+            const videoUpload = await cloudinary.uploader.upload(files.video[0].path, {
+                folder: `${folderPath}/VideoActivitys/${randomId}`,
+                resource_type: "video"
+            });
+            activityData.media = { secure_url: videoUpload.secure_url, public_id: videoUpload.public_id };
+            activityData.ActivityType = "video";
+            
+            if (files.cover?.[0]) {
+                const coverUpload = await cloudinary.uploader.upload(files.cover[0].path, {
+                    folder: `${folderPath}/VideoActivitys/${randomId}/VideoCoverImage`
+                });
+                activityData.videoCover = { secure_url: coverUpload.secure_url, public_id: coverUpload.public_id };
+            }
+          
+           
+         
+           
+        } 
+      
+        else if (files.image?.[0]) {
+            activityData.ActivityType = "image";
+            const imageUpload = await cloudinary.uploader.upload(files.image[0].path, {
+                folder: `${folderPath}/ImageActivitys/${randomId}`
+            });
+            activityData.media = { secure_url: imageUpload.secure_url, public_id: imageUpload.public_id };
+        }
+    }
+
+
+    if (activityData.ActivityType === "text" && (!text || text.trim().length === 0)) {
         return next(new Error("Post content cannot be empty", { cause: 400 }));
     }
 
+  
+    const newPost = await ActivityModel.create(activityData);
+
    
-    const newPost = await ActivityModel.create({ 
-        text,
-        ActivityType: "text", 
-        CreatedBy: userId,
-        isRepost: false,
-    });
-
-
-
-    //clear cash
-    const key =await redisClient.keys("Activitys:*");
-    if(key.length>0) {await redisClient.del(key)}
-
-    res.status(201).json({ status: "success", message: "Text post created successfully", data: newPost });
-});
-export const createImageActivity = asyncHandler(async (req, res, next) => {
-    
-    const { text } = req.body;
-    const userId = req.user._id;
-
-    // Check IF user Uploaded an image
-    if (!req.file) {
-        return next(new Error("Please upload an image file", { cause: 400 }));
-    }
-    
-    const randomId = nanoid()
-
-    //upload Activity Image to Cloudnary servers
-    const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path, {
-        folder: `Ycg/users/${userId}/${req.user.firstName}_${req.user.lastName}/UserActivity/ImageActivitys/${randomId}`,
-    });
-
-    //Add Activity inside the DataBase
-    const newPost = await ActivityModel.create({text,
-        ActivityType: "image",
-        media: { secure_url, public_id },
-        CreatedBy: userId,
-        isRepost: false 
-    });
-     
-
-    //clear cash
-    const key =await redisClient.keys("Activitys:*");
-    if(key.length>0) {await redisClient.del(key)}
-
-    res.status(201).json({status: "success", message: "Image Activity created successfully",data: newPost});
-});
-export const createVideoActivity = asyncHandler(async (req, res, next) => {
-
-
-    const { text } = req.body;
-    const userId = req.user._id;
-    const files = req.files; // multer fields
-
-    //Check if Video Exists
-    if (!files?.video || !files.video[0]) {
-        return next(new Error("Video file is required", { cause: 400 }));
-    }
-    
-    const randomId = nanoid()
-
-
-    //Upload Video in Cloudinary Server
-    const videoUpload = await cloudinary.uploader.upload(files.video[0].path, {
-        folder: `Ycg/users/${userId}/${req.user.firstName}_${req.user.lastName}/UserActivity/VideoActivitys/${randomId}`,
-        resource_type: "video" 
-    });
-
-
-
-    // upload video Cover image if User attempted  to Upload it
-    let videoCoverData = null;
-    if (files?.cover && files.cover[0]) {
-        const coverUpload = await cloudinary.uploader.upload(files.cover[0].path, {
-          folder: `Ycg/users/${userId}/${req.user.firstName}_${req.user.lastName}/UserActivity/VideoActivitys/${randomId}/VideoCoverImage`
-        });
-        videoCoverData = {
-            secure_url: coverUpload.secure_url,
-            public_id: coverUpload.public_id
-        };
+    const keys = await redisClient.keys("Activitys:*");
+    if (keys.length > 0) {
+        await redisClient.del(keys);
     }
 
-    //Add Post inside the DataBase
-    const newPost = await ActivityModel.create({
-        text,
-        ActivityType: "video",
-        media: { secure_url: videoUpload.secure_url, public_id: videoUpload.public_id }, 
-        videoCover: videoCoverData,
-        CreatedBy: userId,
-        isRepost: false 
+    res.status(201).json({
+        status: "success",
+        message: `${activityData.ActivityType} Activity created successfully`,
+        data: newPost
     });
-
-
-
-    //clear cash
-    const key =await redisClient.keys("Activitys:*");
-    if(key.length>0) {await redisClient.del(key)}
-
-
-    res.status(201).json({ status: "success",message: "Video Activity created successfully", data: newPost });
 });
-
 
 //(Display)==>
 export const getHybridFeed = asyncHandler(async (req, res, next) => {

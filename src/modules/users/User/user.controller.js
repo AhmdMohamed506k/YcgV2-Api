@@ -5,8 +5,8 @@ import { sendEmail } from "../../../service/sendEmail/sendMail.js";
 import cloudinary from "../../../utils/Cloudinary/Cloudinary.js";
 import { customAlphabet, nanoid } from "nanoid";
 import { userModel } from "../../../../DB/models/User/UserMainModel/user.model.js";
-import { followModel } from "../../../../DB/models/User/UserMainModel/SubModels/follower.model.js";
-import { viewModel } from "../../../../DB/models/User/UserMainModel/SubModels/viewer.model.js";
+import { followModel } from "../../../../DB/models/Follow/follow.model.js";
+import { viewModel } from "../../../../DB/models/Views/viewer.model.js";
 import redisClient  from "../../../utils/redisClient/redisClient.js";
 import MyPusher from "../../../service/Pusher/PusherConfig.js";
 

@@ -1,5 +1,5 @@
 import Stripe from "stripe";
-import { asyncHandler } from "../../../middleware/asyncHandler/asyncHandler.js";
+import { asyncHandler } from "../../middleware/asyncHandler/asyncHandler.js";
 
 const stripe = new Stripe(process.env.MyStripeAPIkey);
 

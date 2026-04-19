@@ -1,7 +1,7 @@
 import { Router } from "express";
-import {auth} from '../../../../middleware/Auth/auth.js';
-import { MulterHost,  validExtensions} from "../../../../middleware/MulterHost/MulterHost.js";
-import * as UA from "./ActivitySection.controller.js"
+import {auth} from '../../middleware/Auth/auth.js';
+import { MulterHost,  validExtensions} from "../../middleware/MulterHost/MulterHost.js";
+import * as UA from "./Activitys.controller.js"
 
 
 
@@ -12,9 +12,12 @@ const ActivityRouter=Router();
 // ***** Activities (CRUD-Operations) *****
 
 //(Create)==>
-ActivityRouter.post("/Activitys/CreateTextActivity", auth, UA.createTextActivity);
-ActivityRouter.post("/Activitys/CreateImageActivity", auth, MulterHost(validExtensions.image).single("image"), UA.createImageActivity);
-ActivityRouter.post("/Activitys/CreateVideoActivity", auth, MulterHost([...validExtensions.image ,...validExtensions.media]).fields([ { name: "video", maxCount: 1 }, { name: "cover", maxCount: 1 }]), UA.createVideoActivity);
+
+ActivityRouter.post("/Activitys/createUserActivity", auth,MulterHost([...validExtensions.image, ...validExtensions.media]).fields([
+        { name: 'image', maxCount: 1 }, 
+        { name: 'video', maxCount: 1 }, 
+        { name: 'cover', maxCount: 1 },
+    ]), UA.createUserActivity);
 //(Display)==>
 ActivityRouter.get("/Activitys/Home", auth,UA.getHybridFeed);
 ActivityRouter.get("/Activitys/Profiles/:userId", auth,UA.getUserActivity);

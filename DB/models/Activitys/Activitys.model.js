@@ -1,6 +1,7 @@
 import { Schema, model, Types } from "mongoose";
 
-const ActivitySchema = new Schema({
+const ActivitySchema = new Schema(
+  {
     text: {
       type: String,
       trim: true,
@@ -18,51 +19,60 @@ const ActivitySchema = new Schema({
       secure_url: String,
       public_id: String,
     },
-    CommentsCount: { 
+    CommentsCount: {
       type: Number,
-      default: 0 
+      default: 0,
     },
-    likes: [{
-      type: Types.ObjectId,
-      ref: "user",
-    }],
-    LikesCount: { 
+    likes: [
+      {
+        type: Types.ObjectId,
+        ref: "user",
+      },
+    ],
+    LikesCount: {
       type: Number,
-      default: 0 
+      default: 0,
     },
 
-    repostsCount: { 
+    repostsCount: {
       type: Number,
-      default: 0 
+      default: 0,
     },
-    isRepost: { 
-      type: Boolean, 
-      default: false 
+    isRepost: {
+      type: Boolean,
+      default: false,
     },
-    originalActivity: { 
-      type: Types.ObjectId, 
-      ref: "Activity", 
-      default: null 
+    originalActivity: {
+      type: Types.ObjectId,
+      ref: "Activity",
+      default: null,
+    },
+    creatorType: {
+      type: String,
+      required: true,
+      enum: ["user", "Company"],
+      default: "user",
     },
     CreatedBy: {
+      type: Types.ObjectId,
+      required: true,
+      refPath: "creatorType",
+    },
+    addedBy: {
       type: Types.ObjectId,
       ref: "user",
       required: true,
     },
-
-
-
-},{
-
+  },
+  {
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
-
-});
+  },
+);
 
 ActivitySchema.index({ CreatedBy: 1, createdAt: -1 });
 ActivitySchema.index({ originalActivity: 1 });
-
 
 ActivitySchema.virtual("comments", {
   ref: "Comment",
