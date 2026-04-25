@@ -1,37 +1,57 @@
 import Router from "express";
 import {auth} from "../../../middleware/Auth/auth.js"
 import * as CP from "./Company.controller.js"
+import * as AC from "../../Activities/Activity.controller.js"
 import { MulterHost, validExtensions } from "../../../middleware/MulterHost/MulterHost.js";
+const FieldsArray=[ { name: 'image', maxCount: 1 }, { name: 'video', maxCount: 1 }, { name: 'videoCover', maxCount: 1 },]
 
 
 
-const CompanysRouter = Router()
+const CompanyRouter = Router()
 
 
-// Company_Page_CRUD
-CompanysRouter.get("/GetCompanyDashboardData",auth,CP.GetSpeceficCompanyDashBoard);//done
-CompanysRouter.post("/CreateCompanyPage",auth,MulterHost(validExtensions.image).single("Logo"),CP.CreateCompanyPage);//done
-CompanysRouter.put("/UpdateCompanyInfo/:companyId",auth,MulterHost(validExtensions.image).single("Logo"),CP.updateCompany)//done
-CompanysRouter.delete("/DeleteCompany/:companyId", auth , CP.deleteCompany);
-//////////////
+//* Company_Page_CRUD
+CompanyRouter.get("/GetCompanyDashboardData",auth,CP.GetSpecificCompanyDashBoard);//* GetCompanyDashboardData
+
+CompanyRouter.post("/CreateCompanyPage",auth,MulterHost(validExtensions.image).single("Logo"),CP.CreateCompanyPage);//* CreateCompanyPage
+
+CompanyRouter.put("/UpdateCompanyInfo/:companyId",auth,MulterHost(validExtensions.image).single("Logo"),CP.updateCompany)//* UpdateCompanyInfo
+
+CompanyRouter.delete("/DeleteCompany/:companyId", auth , CP.deleteCompany);//* DeleteCompany
 
 
-// Company_Page_activity
-CompanysRouter.get( "/GetallActivities/:companyId",auth, CP.getAllCompanyActivities); //done
-CompanysRouter.get( "/GetSpecificActivitiesInfo",auth, CP.getSpecificCompanyActivityInfo);
-CompanysRouter.post("/CreateCompanyActivity", auth,MulterHost([...validExtensions.image, ...validExtensions.media]).fields([{ name: 'image', maxCount: 1 },{ name: 'video', maxCount: 1 },{ name: 'cover', maxCount: 1 }, ]),  CP.createActivity);//done
-CompanysRouter.patch( "/UpdateCompanyActivity/:activityId",auth, CP.updateSpecificActivityInfo);//done
-CompanysRouter.delete("/DeleteCompanyActivity/:activityId",auth, CP.DeleteActivity);//done
-///////////
+
+
+
+// !==================================================CompanyActivities===============================================================
+
+
+//* PageActivitiesCRUD
+CompanyRouter.post("/createActivity", auth,MulterHost([...validExtensions.image, ...validExtensions.media]).fields(FieldsArray), AC.CreateActivity);//* CreateActivity
+
+CompanyRouter.put("/UpdateActivity/:ActivityId", auth, AC.UpdateActivity);//* UpdateActivityInfo
+
+CompanyRouter.delete("/DeleteActivity/:ActivityId", auth, AC.DeleteActivity);//* DeleteActivity
+
+CompanyRouter.get( "/GetallActivities/:companyId",auth, CP.getAllCompanyActivities); //* GetAllActivities
+
+CompanyRouter.get( "/GetSpecificActivitiesInfo",auth, CP.getSpecificCompanyActivityInfo); //* GetAllActivities
+
+
+
+// !==================================================CompanyActivities===============================================================
+
+
+
 
 
 
 // Page_Services
-CompanysRouter.post("/AddNewAdmin/:companyId",auth,CP.addAdminToCompany)//done
+CompanyRouter.post("/AddNewAdmin/:companyId",auth,CP.addAdminToCompany)//done
 
 
 
 
 
 
-export default CompanysRouter;
+export default CompanyRouter;

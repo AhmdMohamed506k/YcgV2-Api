@@ -50,7 +50,7 @@ export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
 
   return res.status(201).json({status: "success",message: "Company registered successfully",company,});
 });
-export const GetSpeceficCompanyDashBoard = asyncHandler(async (req, res, next) => {//Need Editing
+export const GetSpecificCompanyDashBoard = asyncHandler(async (req, res, next) => {//Need Editing
 
 
   const userId = req.user._id;
@@ -275,132 +275,6 @@ export const getSpecificCompanyActivityInfo = asyncHandler(async (req, res, next
   await redisClient.set(cashKey, JSON.stringify(result), { EX: 600 });
   res.status(200).json({ status: "success", source: "DB", result });
 });
-export const createActivity = asyncHandler(async (req, res, next) => {
-  const { text, creatorType, companyId } = req.body;
-  const userId = req.user._id;
-
-
-  let activityData = {
-    text,
-    addedBy: userId,
-    ActivityType: "text",
-    creatorType: creatorType || "user",
-    CreatedBy: userId, 
-  };
-
-
-  if (creatorType === "Company") {
-    const company = await companyModel.findOne({ "Admins.user": userId, _id: companyId });
-    if (!company) return next(new Error("Company not found or access denied", 404));
-
-    const currentAdmin = company.Admins.find(a => a.user.toString() === userId.toString());
-    if (!currentAdmin || !["admin", "superAdmin"].includes(currentAdmin.role)) {
-      return next(new Error("Unauthorized: Only admins can post", 403));
-    }
-    activityData.CreatedBy = companyId;
-  }
-
-
-  if (req.files) {
-    if (req.files.video) {
-      const { public_id, secure_url } = await cloudinary.uploader.upload(req.files.video[0].path, {
-        resource_type: "video",
-        folder: `YCG/companys/${companyId}/Activities/videos`
-      });
-      activityData.media = { public_id, secure_url };
-      activityData.ActivityType = "video";
-
-      if (req.files.cover) {
-        const cover = await cloudinary.uploader.upload(req.files.cover[0].path, {
-          folder: `YCG/companys/${companyId}/Activities/videoCovers`
-        });
-        activityData.videoCover = { secure_url: cover.secure_url, public_id: cover.public_id };
-      }
-    } 
-  
-    else if (req.files.image) {
-      const { public_id, secure_url } = await cloudinary.uploader.upload(req.files.image[0].path, {
-        folder: `YCG/companys/${companyId}/Activities/ImageActivitys`
-      });
-      activityData.media = { public_id, secure_url };
-      activityData.ActivityType = "image";
-    }
-  }
-
-  const activity = await ActivityModel.create(activityData);
-  await redisClient.del(`Feed:${companyId}`);
-
-  res.status(201).json({ status: "success", data: activity });
-});
-export const updateSpecificActivityInfo = asyncHandler(async (req, res, next) => {
-  const { text } = req.body;
-  const { activityId } = req.params; 
-  const userId = req.user._id;
-
-  const activity = await ActivityModel.findById(activityId);
-  if (!activity) return next(new Error("Activity not found", 404));
-
- 
-  if (activity.creatorType === "Company") {
-
-
-    const company = await companyModel.findOne({ _id: activity.CreatedBy, "Admins.user": userId });
-    const currentAdmin = company?.Admins.find(a => a.user.toString() === userId.toString());
-    
-    if (!currentAdmin || !["admin", "superAdmin"].includes(currentAdmin.role)) {
-      return next(new Error("Unauthorized: You must be an admin of this company", 403));
-    }
-  } else {
-    if (activity.addedBy.toString() !== userId.toString()) {
-      return next(new Error("Unauthorized: This isn't your post", 403));
-    }
-  }
-
-  if (!text || text === activity.text) {
-    return next(new Error("No changes detected or empty text", 400));
-  }
-
-  activity.text = text;
-  await activity.save();
-
-
-  await redisClient.del(`Feed:${activity.CreatedBy}`);
-
-  
-  res.status(200).json({ status: "success", message: "Post Updated Successfully", data: activity });
-});
-export const DeleteActivity = asyncHandler(async (req, res, next) => {
-  const { activityId } = req.params; 
-  const userId = req.user._id;
-
-  const activity = await ActivityModel.findById(activityId);
-  if (!activity) return next(new Error("Activity not found", 404));
-
-
-  if (activity.creatorType === "Company") {
-    const company = await companyModel.findOne({ _id: activity.CreatedBy, "Admins.user": userId });
-    if (!company) return next(new Error("Unauthorized admin access", 403));
-  } else {
-    if (activity.addedBy.toString() !== userId.toString()) {
-      return next(new Error("Unauthorized", 403));
-    }
-  }
-
- 
-  if (activity.media?.public_id) {
-    const resourceType = activity.ActivityType === "video" ? "video" : "image";
-    await cloudinary.uploader.destroy(activity.media.public_id, { resource_type: resourceType });
-  }
-
-  await ActivityModel.findByIdAndDelete(activityId);
-  await redisClient.del(`Feed:${activity.CreatedBy}`);
-
-  res.status(200).json({ status: "success", message: "Deleted Successfully" });
-});
-//////////////
-
-
-//activities_Services
 
 
 

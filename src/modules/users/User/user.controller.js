@@ -9,8 +9,9 @@ import { followModel } from "../../../../DB/models/Follow/follow.model.js";
 import { viewModel } from "../../../../DB/models/Views/viewer.model.js";
 import redisClient  from "../../../utils/redisClient/redisClient.js";
 import MyPusher from "../../../service/Pusher/PusherConfig.js";
+import { ActivityModel } from "../../../../DB/models/Activitys/Activitys.model.js";
 
-// =============Register&CreateAccountApis==================
+// ?=============Register&CreateAccountApis==================? //
 export const Register = asyncHandler(async (req, res, next) => {
   // Register
 
@@ -181,7 +182,7 @@ export const AddRegisteredUserOtherInformations = asyncHandler(async (req, res,n
   }
 );
 
-// =============LoggedUserApis==================
+//todo: =============LoggedUserApis================== 
 export const Login = asyncHandler(async (req, res, next) => {
   const { email, password } = req.body;
      
@@ -273,9 +274,8 @@ export const ResetPassword = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({ msg: "Password changed successfully" });
 });
-//===
 
-//==> User_Profile
+//==> Get_User_Profile
 export const getLoggedinUserProfile = asyncHandler(async (req, res, next) => {
   const userId = req.user._id;
 
@@ -295,178 +295,7 @@ export const getLoggedinUserProfile = asyncHandler(async (req, res, next) => {
   }
   res.status(200).json({ status: "success", data: { profile: userProfile } });
 });
-//===
-
-//==> User_Cv
-export const UploadLoggedInUserCv = asyncHandler(async (req, res, next) => {
-    const userExist = await userModel.findById(req.user._id);
-    if (!userExist) {
-      return next(new Error("User not found"));
-    }
-
-    if (!req.file) {
-      return next(new Error("No file uploaded"));
-    }
-
-
-    const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path,{
-        folder: `Ycg/users/${req.user._id}/${req.user.firstName || ""}_${
-          req.user.lastName || ""
-        }/UserCVs`,
-      }
-    );
-
-    const upload = await userModel.findOneAndUpdate(
-      { _id: req.user._id, status: "online" },
-      { userCV: { secure_url, public_id } },
-      { new: true }
-    );
-
-    if (!upload) {
-      return next(
-        new Error("You are offline or an error occurred while updating CV")
-      );
-    }
-
-    res.status(201).json({ msg: "CV uploaded successfully", userCV: upload.userCV });
-  
-
-
-  
-});
-export const RemoveOldUserCV = asyncHandler(async (req,res,next)=>{
-
-  const {publicId} = req.body;
-   
-  const UserExist = await userModel.findOneAndUpdate({"userCV.public_id": publicId},{"userCV.public_id":null ,"userCV.secure_url":null},{new:true})
-  if(!UserExist){return next(new Error("User not found or Invalid Id"))}
-   
- 
-  
-  const result =  await cloudinary.uploader.destroy(publicId);
-
-  res.status(200).json({msg:"Deleted Successfully"})
-
-})
-//===
-
-//===> User_Banner
-export const UploadLoggedInUserBanner = asyncHandler(async (req, res, next) => {
-  try {
-    const userExist = await userModel.findById(req.user._id);
-    if (!userExist) {
-      return next(new Error("User not found"));
-    }
-
-    if (!req.file) {
-      return next(new Error("No file uploaded"));
-    }
-
-
-    const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path,{
-        folder: `Ycg/users/${req.user._id}/${req.user.firstName || ""}_${req.user.lastName || "" }/userBanner`,
-      }
-    );
-
-    const upload = await userModel.findOneAndUpdate(
-      { _id: req.user._id, status: "online" },
-      { userBanner: { secure_url, public_id } },
-      { new: true }
-    );
-
-    if (!upload) {
-      return next(
-        new Error(
-          "You are offline or an error occurred while updating userBanner"
-        )
-      );
-    }
-
-    res.status(201).json({
-      msg: "userBanner uploaded successfully",
-      userBanner: upload.userBanner,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-export const RemoveOldUserBanner = asyncHandler(async (req,res,next)=>{
-
-  const {publicId} = req.body;
-   
-  const UserExist = await userModel.findOneAndUpdate({"userBanner.public_id": publicId},{"userBanner.public_id":null ,"userBanner.secure_url":null},{new:true})
-  if(!UserExist){return next(new Error("User not found or Invalid Id"))}
-   
- 
-  
-  const result =  await cloudinary.uploader.destroy(publicId);
-
-  res.status(200).json({msg:"Deleted Successfully"})
-
-})
-//===
-
-//===> User_Profile_Image
-export const UpdateLoggedInUserImageProfile = asyncHandler(async (req, res, next) => {
-    try {
-      const userExist = await userModel.findById(req.user._id);
-      if (!userExist) {
-        return next(new Error("User not found"));
-      }
-
-      if (!req.file) {
-        return next(new Error("No file uploaded"));
-      }
-
-      if (userExist.userProfileImg.public_id) {
-        await cloudinary.uploader.destroy(userExist.userProfileImg.public_id);
-      }
-
-      const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path, {
-          folder: `Ycg/users/${req.user._id}/${req.user.firstName || ""}_${ req.user.lastName || "" }/ProfileImage`,
-        }
-      );
-
-      const upload = await userModel.findOneAndUpdate(
-        { _id: req.user._id, status: "online" },
-        { userProfileImg: { secure_url, public_id } },
-        { new: true }
-      );
-
-      if (!upload) {
-        return next(
-          new Error(
-            "You are offline or an error occurred while updating userProfileImg"
-          )
-        );
-      }
-
-      res.status(201).json({
-        msg: "userProfileImg uploaded successfully",
-        userProfileImg: upload.userProfileImg,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-export const RemoveOldUserProfileImage = asyncHandler(async (req,res,next)=>{
-
-  const {publicId} = req.body;
-   
-  const UserExist = await userModel.findOneAndUpdate({"userProfileImg.public_id": publicId},{"userProfileImg.public_id":null ,"userProfileImg.secure_url":null},{new:true})
-  if(!UserExist){return next(new Error("User not found or Invalid Id"))}
-   
-
-  
-  const result =  await cloudinary.uploader.destroy(publicId);
-
-  res.status(200).json({msg:"Deleted Successfully"})
-
-})
-//===
-
-//==> Update_User_Informations
+//==> Update_User_ProfileInfo
 export const updateLoggedInUserdata = asyncHandler(async (req, res, next) => {
   const updates = {};
 
@@ -489,7 +318,7 @@ export const updateLoggedInUserdata = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({ msg: "Successfully updated", user });
 });
-//==> Change_User_Password
+//==> Change_Loggedin_User_Password
 export const updateLoggedInUserPassword = asyncHandler( async (req, res, next) => {
     const { password, repassword } = req.body;
 
@@ -518,100 +347,6 @@ export const updateLoggedInUserPassword = asyncHandler( async (req, res, next) =
     return res.status(200).json({ msg: "Password updated successfully" });
   }
 );
-//===
-
-
-//==> Follow_Operations
-export const followUser = asyncHandler(async(req,res,next)=>{
-
-
-    const followerId = req.user._id; //LoggedIn User
-    const { followingId } = req.body;
-
-    if (followerId.toString() === followingId) {
-      return next(new Error("You cannot follow yourself",400))
-    }
-
-    
-    const targetUser = await userModel.findById(followingId);
-    if (!targetUser) {
-      return next(new Error("User not found",404))
-    }
-
-   
-    const existingFollow = await followModel.findOne({ followerId, followingId });
-    if (existingFollow) { return next(new Error("You are already following this user",400))}
-
-
-    await followModel.create({ followerId, followingId });
-    
-  
-
-
-
-    res.status(200).json({ status: "success", message: "User followed successfully" });
-});
-export const unfollowUser = asyncHandler(async(req,res,next)=>{
-
-  const followerId = req.user._id;//LoggedIn User
-  const { followingId } = req.body;
-
-   
-  const result = await followModel.findOneAndDelete({ followerId, followingId });
-
-  if (!result) {
-     return next(new Error("You are not following this user",400))
-  }
-
-  res.status(200).json({ status: "success", message: "User unfollowed successfully" });
-});
-//===
-
-//==> view_Operations
-export const recordProfileView = asyncHandler(async(req,res,next)=>{
-
-   const viewerId = req.user._id.toString(); //Logged in user
-    const { profileId } = req.body; // watched profile
-
-
-    if (viewerId === profileId) {
-      return res.status(200).json({ message: "Self-view ignored" });
-    }
-
-
-    const viewCacheKey = `view:${viewerId}:${profileId}`;
-    const isViewedRecently = await redisClient.get(viewCacheKey);
-
-
-
-    if (!isViewedRecently) {
-   
-      await viewModel.create({ viewerId, profileId });
-
-
-      await redisClient.set(viewCacheKey, "true", { EX: 3600  });
-
-     
-    } 
-
-    res.status(200).json({ status: "success", message: "View processed" });
-
-
-});
-export const getMyViewers = asyncHandler(async (req,res,next)=>{
-
-  const userId = req.user._id;//Logged in user
-
-  const viewers = await viewModel.find({ profileId: userId }).populate("viewerId", "firstName lastName userProfileImg userSubTitle").sort({ createdAt: -1 }).limit(50); 
-
-  
-  
-  const cleanedViewers = viewers.map(v => ({ visitor: v.viewerId, viewedAt: v.createdAt }));
-
-  res.status(200).json({ status: "success", count: cleanedViewers.length,data: cleanedViewers});
-
-});
-//===
 
 //==> People_That_user_May_Know 
 export const getPeopleYouMayKnow = asyncHandler(async (req, res, next) => {
@@ -691,8 +426,6 @@ export const getPeopleYouMayKnow = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({ status: "success", data: suggestions });
 });
-//===
-
 //==> RefreshUserStatus
 export const refreshStatus = asyncHandler(async (req, res, next) => {
     const userId = req.user._id;
@@ -704,29 +437,110 @@ export const refreshStatus = asyncHandler(async (req, res, next) => {
 
     res.status(200).json({ status: "success", message: "Status heartbeat received" });
 });
-//===
 
-//==> AddSkills
-export const addLoggedInUserSkills = asyncHandler(async (req, res, next) => {
-  const { skill } = req.body;
 
-  if (req.user.Userskills.includes(skill)) {
-    return next(new Error("Sorry Skill allready exist"));
-  }
+//!==================================UserActivities========================================!//
 
-  if (!skill || (Array.isArray(skill) && skill.length === 0)) {
-    return next(new Error("Skill is required"));
-  }
 
-  const NewUserSkill = await userModel.findOneAndUpdate(
-    { _id: req.user._id, status: "online" },
-    { $addToSet: { Userskills: skill } },
-    { new: true }
-  );
+export const getHybridFeed = asyncHandler(async (req, res, next) => {
 
-  res.status(201).json({ msg: "added Successfully" });
+    const userId = req.user._id;
+
+
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+
+
+    const Cashkey = `Activities:${userId}:page:${page}22`;
+    const CachedData = await redisClient.get(Cashkey);
+
+    if (CachedData) {
+        return res.status(200).json({ status: "Success", source: "Cash", data: JSON.parse(CachedData) });
+    }
+    
+
+
+    // 1-Get User following IDs
+    const myFollowing = await followModel.find({ followerId: userId }).distinct("followingId");
+    const authorIds = [...myFollowing, userId];
+
+
+
+
+    // 2. bring in Activitys from User inner circle
+    let posts = await ActivityModel.find({ CreatedBy: { $in: authorIds } })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("CreatedBy", "firstName lastName userProfileImg userSubTitle")
+        .populate({  path: "originalActivity",  populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" } 
+    });
+
+
+
+
+
+
+
+    //3.If user Following Activitys are little continue Displaying Globle Activitys
+    if (posts.length < limit) {
+
+        const remainingLimit = limit - posts.length;
+        const excludedIds = posts.map(p => p._id); // To make sure not repeat the same posts
+
+
+        const globalPosts = await ActivityModel.find({
+            _id: { $nin: excludedIds },// To exclude the Posts that displayed in the past
+            CreatedBy: { $nin: authorIds }// to get people who's are outside following circle
+        })
+        .sort({ createdAt: -1 })
+        .limit(remainingLimit)
+        .populate("CreatedBy", "firstName lastName userProfileImg userSubTitle")
+        .populate({  path: "originalActivity",  populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" } });
+
+        posts = [...posts, ...globalPosts];
+    }
+
+    if (posts.length > 0) {
+        await redisClient.set(Cashkey, JSON.stringify(posts), { EX: 300 });
+    }
+
+    res.status(200).json({  status: "success", results: posts.length,  data: posts  });
 });
-//===
+export const getUserActivity = asyncHandler(async (req, res, next) => {
+
+
+    const { userId } = req.params; // Logged in User Profile ID
+
+
+    
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+
+
+    const UserActivitys = await ActivityModel.find({ CreatedBy: userId })
+    
+        .sort({ createdAt: -1 }) // the newer Activty First
+        .skip(skip)
+        .limit(limit)
+        .populate("CreatedBy", "firstName lastName userProfileImg userSubTitle")
+        .populate({ path: "originalActivity",populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" }
+
+    });
+
+
+
+    res.status(200).json({status: "success", results: UserActivitys.length, data: UserActivitys});
+});
+
+
+
+
 
 
 
@@ -760,5 +574,28 @@ export const getAllUsers = asyncHandler(async (req, res, next) => {
   });
 });
 
+
+
+
+//==> AddSkills
+export const addLoggedInUserSkills = asyncHandler(async (req, res, next) => {
+  const { skill } = req.body;
+
+  if (req.user.Userskills.includes(skill)) {
+    return next(new Error("Sorry Skill allready exist"));
+  }
+
+  if (!skill || (Array.isArray(skill) && skill.length === 0)) {
+    return next(new Error("Skill is required"));
+  }
+
+  const NewUserSkill = await userModel.findOneAndUpdate(
+    { _id: req.user._id, status: "online" },
+    { $addToSet: { Userskills: skill } },
+    { new: true }
+  );
+
+  res.status(201).json({ msg: "added Successfully" });
+});
 
 
