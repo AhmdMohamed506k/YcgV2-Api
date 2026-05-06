@@ -1,38 +1,30 @@
-import { Schema, model } from "mongoose";
+import { Schema, Types, model } from "mongoose";
 
-const followSchema = new Schema(
-  {
-  
+const followSchema = new Schema({
     followerId: {
-      type: Schema.Types.ObjectId,
-      ref: "user",
+      type: Types.ObjectId,
+      ref: "User",
       required: true,
     },
-    
     followingId: {
-      type: Schema.Types.ObjectId,
-      ref: "user",
+      type: Types.ObjectId,
       required: true,
     },
- 
-    followedAt: {
-      type: Date,
-      default: Date.now,
+    onModel: {
+      type: String,
+      required: true,
+      enum: ["user", "Company"],
     },
+
+    
+  },{ 
+    timestamps: true
   },
-  { 
-    timestamps: true,
-    versionKey: false 
-  }
 );
 
-
-
 followSchema.index({ followerId: 1, followingId: 1 }, { unique: true });
-
-
 followSchema.index({ followerId: 1 });
-
 followSchema.index({ followingId: 1 });
+
 
 export const followModel = model("Follow", followSchema);

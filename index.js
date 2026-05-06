@@ -15,6 +15,8 @@ import NotificationRouter from "./src/modules/Notifications/Notifications.routes
 import ChatRouter from "./src/modules/ChatSystem/Chat.routes.js";
 import PaymentRouter from "./src/modules/Payment/Payment.routes.js";
 import CompanyRouter from "./src/modules/Companys/Company/Company.routes.js";
+import ActivityRouter from './src/modules/Activities/Activity.routes.js';
+import FeaturesRouter from './src/modules/WebsiteFeatures/Features.routes.js';
 
 
 
@@ -39,22 +41,33 @@ app.use(cors({origin : "*"}));
 
 
 
-//TODO================MainRouters===============================>
+//RED1================MainRouters===============================>
+
+//ORANGE1==Companies=>
+app.use("/api/v1/Company", CompanyRouter); 
+
+//ORANGE1==User=>
+app.use("/api/v1/user", UserRouter); 
+
+//ORANGE1==Payment=>
+app.use("/api/v1/payment/webhook", PaymentRouter);
+
+//ORANGE1==Chat=>
+app.use("/api/v1/user/Chat", ChatRouter);
+
+//ORANGE1====Notifications=>
+app.use("/api/v1/user/Notifications", NotificationRouter);
+
+//*ORANGE1====Activities=>
+app.use("/api/v1/Activities", ActivityRouter);
+
+//*ORANGE1====WebsiteFeatures=>
+app.use("/api/v1/Features", FeaturesRouter);
 
 
-app.use("/api/v1/Company", CompanyRouter); //*==Companies=>
-
-app.use("/api/v1/user", UserRouter); //*==User=>
-
-app.use("/api/v1/payment/webhook", PaymentRouter);//*==Payment=>
-
-app.use("/api/v1/user/Chat", ChatRouter);//*==Chat=>
-
-app.use("/api/v1/user/Notifications", NotificationRouter);//*====Notifications=>
 
 
-
-//!=================UserSections==========================>
+//YELLOW1=================UserSections==========================>
 
   
 app.use("/api/v1/AboutUser", AboutSectionRouter); 
@@ -72,7 +85,7 @@ app.use("/api/v1/UserProjects", ProjectSectionRouter);
 app.use("/api/v1/UserLicenses", LicensesAndcertificationsRouter); 
 
 
-// !===========================>
+// YELLOW1!===========================>
 
 
 

@@ -2,8 +2,8 @@ import { nanoid } from "nanoid";
 import redisClient from "../../utils/redisClient/redisClient.js";
 import {asyncHandler} from "../../middleware/asyncHandler/asyncHandler.js"
 import cloudinary from "../../utils/Cloudinary/Cloudinary.js"
-import { ActivityModel } from "../../../DB/models/Activitys/Activitys.model.js";
-import { commentModel } from "../../../DB/models/Activitys/Comments.model.js";
+import { ActivityModel } from "../../../DB/models/Activities/Activities.model.js";
+import { commentModel } from "../../../DB/models/Activities/Comments.model.js";
 import { followModel } from "../../../DB/models/Follow/follow.model.js";
 import MyPusher  from "../../service/Pusher/PusherConfig.js";
 import { userModel } from "../../../DB/models/User/UserMainModel/user.model.js";
@@ -13,83 +13,338 @@ import  companyModel  from "../../../DB/models/Company/Company.model.js";
 
 
 
-//! create-Activity (Companies && users) !//
+
+
+
+
+//WHITE========================================CRUD===================================================================///
+
+//GREEN3 DisPlay (CompaniesPage && userProfile) !//
+export const getHybridFeed = asyncHandler(async (req, res, next) => {
+
+    const userId = req.user._id;
+
+
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+
+
+    const Cashkey = `Activities:${userId}:page:${page}22`;
+    const CachedData = await redisClient.get(Cashkey);
+
+    if (CachedData) {
+        return res.status(200).json({ status: "Success", source: "Cash", data: JSON.parse(CachedData) });
+    }
+    
+
+
+    // 1-Get User following IDs
+    const myFollowing = await followModel.find({ followerId: userId }).distinct("followingId");
+    const authorIds = [...myFollowing, userId];
+
+
+
+
+    // 2. bring in Activitys from User inner circle
+    let posts = await ActivityModel.find({ CreatedBy: { $in: authorIds } })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("CreatedBy", "firstName lastName userProfileImg userSubTitle")
+        .populate({  path: "originalActivity",  populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" } 
+    });
+
+
+
+
+
+
+
+    //3.If user Following Activitys are little continue Displaying Globle Activitys
+    if (posts.length < limit) {
+
+        const remainingLimit = limit - posts.length;
+        const excludedIds = posts.map(p => p._id); // To make sure not repeat the same posts
+
+
+        const globalPosts = await ActivityModel.find({
+            _id: { $nin: excludedIds },// To exclude the Posts that displayed in the past
+            CreatedBy: { $nin: authorIds }// to get people who's are outside following circle
+        })
+        .sort({ createdAt: -1 })
+        .limit(remainingLimit)
+        .populate("CreatedBy", "firstName lastName userProfileImg userSubTitle")
+        .populate({  path: "originalActivity",  populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" } });
+
+        posts = [...posts, ...globalPosts];
+    }
+
+    if (posts.length > 0) {
+        await redisClient.set(Cashkey, JSON.stringify(posts), { EX: 300 });
+    }
+
+    res.status(200).json({  status: "success", results: posts.length,  data: posts  });
+})
+export const GetActivities = asyncHandler(async(req,res,next)=>{
+    
+    
+    const {OwnerId}=req.params;
+    const userId=req.user.Id
+    
+
+   
+   const page = Math.max(1,parseInt(req.query.page) || 1 );
+   const limit = Math.min(50,parseInt(req.query.page)|| 10)
+   const skip = (page - 1) * limit;
+
+
+
+
+     
+    const CacheKey=`Activities:${OwnerId}:p:${page}:l:${limit}`
+    const CachedData=await redisClient.get(CacheKey);
+
+    if(CachedData){
+        return res.status(200).json({Msg:"done",status:"success",source:"Cache",data:JSON.parse(CachedData)})
+    }
+
+  
+
+
+   const Activities= await ActivityModel.find({CreatedBy:OwnerId})
+  .sort({ createdAt: -1 }) 
+  .skip(skip)
+  .limit(limit)
+  .populate({path:"CreatedBy",select:"firstName lastName userProfileImg CompanyName Logo "})
+  .populate({path: "comments",
+    populate: { path: "userId", select: "firstName lastName userProfileImg" }
+  })
+
+
+   
+
+  
+    await redisClient.set(CacheKey,JSON.stringify(Activities),{EX:300})
+  
+
+    res.status(200).json({Msg:"done",status:"success",source:"DB",count:Activities.length ,data:Activities})
+
+
+
+})
+export const GetSpecificActivityInfo = asyncHandler(async(req,res,next)=>{
+
+  const {activityId}=req.params;
+  const userId=req.user._id
+
+  
+  const CacheKey=`ActivityInfo:${activityId}`;
+  const CachedData= await redisClient.get(CacheKey);
+
+  if(CachedData){
+  return res.status(200).json({msg:"Done", status:"success",source:"Cache",data:JSON.parse(CachedData)})
+  }
+
+
+  const ActivityExists=await ActivityModel.findById(activityId)
+  .populate({path:"CreatedBy", select:"firstName lastName userProfileImg userProfileImg CompanyName Logo "})
+  .populate({path:"comments",
+    populate:{path:"userId",select:"firstName lastName userProfileImg"}
+})  
+
+
+
+  if (!ActivityExists) {
+    return next(new Error("Sorry, Activity not Exists"),404)
+  }
+
+  await redisClient.set(CacheKey,JSON.stringify(ActivityExists),{EX:300})
+
+  
+  res.status(200).json({msg:"done", status:"success",source:"DB" ,data:ActivityExists})
+
+
+})
+
+//YELLOW2 Create (Companies && users) !//
 export const CreateActivity = asyncHandler(async (req, res, next) => {
-    const { text, creatorType, companyId } = req.body;
+
+    const { text ,creatorType } = req.body;
+    var newPost={}
     const userId = req.user._id;
     const files = req.files;
 
 
-    const randomId = nanoid();
-    let folderPath = "";
-    
     let activityData = {
         text,
         ActivityType: "text",
-        media: null,
-        videoCover: null,
+        media:null,
+        videoCover:null,
         creatorType: "user",
         CreatedBy: userId,
         addedBy: userId,
         isRepost: false
+
     };
 
-  
-    if (creatorType === "user") {
-        folderPath = `Ycg/users/${userId}/${req.user.firstName}_${req.user.lastName}/UserActivity`;
-    } 
-    else if (creatorType === "Company") {
-        const company = await companyModel.findOne({ _id: companyId, "Admins.user": userId });
-        if (!company) return next(new Error("Company not found or access denied", 404));
 
-        const currentAdmin = company.Admins.find(a => a.user.toString() === userId.toString());
-        if (!currentAdmin || !["admin", "superAdmin"].includes(currentAdmin.role)) {
-            return next(new Error("Unauthorized: Only admins can post", 403));
+    const randomId = nanoid();
+       
+    //  ? check if Post Description in Empty ? //
+    if (activityData.ActivityType === "text" && (!text || text.trim().length === 0)) {
+        return next(new Error("Post content cannot be empty", { cause: 400 }));
+    }
+
+   
+
+   
+
+    // TODO => For User posts
+    if(creatorType === "user" ){
+
+   
+    const folderPath = `Ycg/users/${userId}/${req.user.firstName}_${req.user.lastName}/UserActivity`;
+
+    if (files) {
+
+
+        if (files.video?.[0]) {
+
+        const videoUpload = await cloudinary.uploader.upload(files.video[0].path, {
+                folder: `Ycg/users/${userId}/${req.user.firstName}_${req.user.lastName}/UserActivities/VideoActivities/${randomId}`,
+                resource_type: "video"
+        });
+
+        activityData.media = { secure_url: videoUpload.secure_url, public_id: videoUpload.public_id };
+        activityData.ActivityType = "video";
+
+        if (files.videoCover?.[0]) {
+
+        const coverUpload = await cloudinary.uploader.upload(files.videoCover[0].path, {
+        folder: `Ycg/users/${userId}/${req.user.firstName}_${req.user.lastName}/UserActivities/VideoActivities/${randomId}/VideoCoverImage`
+        });
+
+        activityData.videoCover = { secure_url: coverUpload.secure_url, public_id: coverUpload.public_id };
+
         }
 
-        activityData.creatorType = "Company";
-        activityData.CreatedBy = company._id;
-        folderPath = `YCG/companys/${company._id}/Activities`;
-    }
 
-  
-    if (!text?.trim() && (!files || Object.keys(files).length === 0)) {
-        return next(new Error("Post content cannot be empty", 400));
-    }
-    if (files && Object.keys(files).length > 0) {
-        if (files.video?.[0]) {
-            const videoUpload = await cloudinary.uploader.upload(files.video[0].path, {
-                folder: `${folderPath}/VideoActivitys/${randomId}`,
-                resource_type: "video"
-            });
-            activityData.media = { secure_url: videoUpload.secure_url, public_id: videoUpload.public_id };
-            activityData.ActivityType = "video";
+        }
 
-            if (files.videoCover?.[0]) {
-                const coverUpload = await cloudinary.uploader.upload(files.videoCover[0].path, {
-                    folder: `${folderPath}/VideoActivitys/${randomId}/VideoCoverImage`
-                });
-                activityData.videoCover = { secure_url: coverUpload.secure_url, public_id: coverUpload.public_id };
-            }
-        } else if (files.image?.[0]) {
+
+        else if (files.image?.[0]) {
+
+            activityData.ActivityType = "image";
             const imageUpload = await cloudinary.uploader.upload(files.image[0].path, {
-                folder: `${folderPath}/ImageActivitys/${randomId}`
+                folder: `Ycg/users/${userId}/${req.user.firstName}_${req.user.lastName}/UserActivities/ImageActivities/${randomId}`
             });
             activityData.media = { secure_url: imageUpload.secure_url, public_id: imageUpload.public_id };
-            activityData.ActivityType = "image";
         }
+
+
     }
 
 
-    const newPost = await ActivityModel.create(activityData);
+    newPost = await ActivityModel.create(activityData);
 
-    const cachePattern = activityData.creatorType === "Company"  ? `CompanyActivities:${activityData.CreatedBy}*`  : "Activitys:*";
-    const keys = await redisClient.keys(cachePattern);
-    if (keys.length > 0) await redisClient.del(keys);
+    
+    const keys = await redisClient.keys(`Activities:${userId}*`);
 
-    res.status(201).json({ status: "success", message: `Activity created successfully`, data: newPost });
+    await redisClient.del(keys);
+   
+
+
+    }
+    // ! For Company Posts
+    else if(creatorType === "Company"){
+
+      activityData.creatorType = creatorType
+        
+
+      
+        const CompanyExists = await companyModel.findOne({"Admins.user":userId})
+        if (!CompanyExists) {
+           return next(new Error("Company not found or access denied", { cause: 404 }))
+        }
+    
+        const CurrentAdmin = await CompanyExists.Admins.find(a => a.user.toString()=== userId.toString());
+        if(!CurrentAdmin || !["admin","superAdmin"].includes(CurrentAdmin.role)){
+            return next(new Error("Unauthorized: Only admins can post", { cause: 404 }));
+        }
+
+        activityData.CreatedBy = CompanyExists._id;
+        activityData.addedBy = userId
+
+
+        if(files){
+
+            if(files.video?.[0]){
+
+            const {public_id,secure_url}= await cloudinary.uploader.upload(files.video[0].path,{
+                resource_type:"video",
+                folder:`Ycg/companys/${CompanyExists._id}/${CompanyExists.CompanyName}/CompanyActivity/videoActivities/${randomId}`
+
+            })
+            activityData.ActivityType="video";
+            activityData.media={public_id,secure_url};
+
+               
+            if(req.files.videoCover?.[0]){
+            const MediaCover =await cloudinary.uploader.upload(files.videoCover[0].path,{
+                folder:`Ycg/companys/${CompanyExists._id}/${CompanyExists.CompanyName}/CompanyActivity/videoActivities/${randomId}/VideoCover`
+            })
+
+            activityData.videoCover={secure_url:MediaCover.secure_url ,public_id:MediaCover.public_id}
+
+            }
+
+
+            }
+
+
+            if(files.image?.[0]){
+
+                const {public_id,secure_url}=await cloudinary.uploader.upload(files.image[0].path,{
+                folder:`Ycg/companys/${CompanyExists._id}/${CompanyExists.CompanyName}/CompanyActivity/ImageActivities/${randomId}`
+                })
+
+                activityData.media={public_id,secure_url}
+                activityData.ActivityType="image"
+
+            }
+
+           
+
+
+           
+
+        }
+
+
+        newPost = await ActivityModel.create(activityData);
+
+         
+        const keys = await redisClient.keys(`Activities:${CompanyExists._id}`);
+        await redisClient.del(keys);
+       
+
+    }
+
+
+
+
+    res.status(201).json({ status: "success", message: `Activity created successfully`, data: newPost});
+
+
+
+ 
+
 });
-//? Update-Activity (Companies && users) ?//
+
+//CYAN2 Update (Companies && users) ?//
 export const UpdateActivity = asyncHandler(async (req, res, next) => {
 
     const { ActivityId } = req.params;
@@ -98,65 +353,64 @@ export const UpdateActivity = asyncHandler(async (req, res, next) => {
       
 
  
-       
-
-
-     
     //  ? check if Post Description in Empty ? //
     if ((!text || text.trim().length === 0)) {
         return next(new Error("Post content cannot be empty", { cause: 400 }));
     }
-    
    //? Check if Activity Exists
-    const ActivityExists = await ActivityModel.findOne({_id:ActivityId });
+  
+    const ActivityExists = await ActivityModel.findOne({_id:ActivityId});
     if(!ActivityExists){return next(new Error("Sorry, Activity not Exists"),404)}
-
+   
+     
 
   // TODO => For User posts
    if(creatorType === "user"){
 
-    
+
     if(ActivityExists.CreatedBy.toString() !== userId.toString()){
     return next(new Error("Sorry, you are not authorized"),404)
     }
 
     // update Activity Text
-    ActivityExists.text = text || activity.text;
+    ActivityExists.text = text || ActivityExists.text;
     await ActivityExists.save();
 
     // clear cach
-    const keys = await redisClient.keys("Activities:*");
-    if (keys.length > 0) await redisClient.del(keys);
+    const ActivityDetailsKey= await redisClient.keys(`ActivityInfo:${ActivityExists._id}`)
+    const keys = await redisClient.keys(`Activities:${userId}:*`);
+
+
+   
+   if(keys.length >=1){ await redisClient.del(keys);}
+   if(ActivityDetailsKey.length >=1){ await redisClient.del(ActivityDetailsKey);}
+  
+        
+      
 
    }
     // ! For Company Posts
-   else if(creatorType === "Company"){
+  else if(creatorType === "Company"){
+    
+    const CompanyExists = await companyModel.findOne({ _id: ActivityExists.CreatedBy, "Admins.user": userId });
+    if (!CompanyExists) return next(new Error("Unauthorized: Access denied for this company"), 403);
 
-    const CompanyExists = await companyModel.findOne({"Admins.user":userId})
-    if (!CompanyExists) {
-          return next(new Error("Company not found or access denied"),404)
-    }
-        
-    const CurrentAdmin = await CompanyExists.Admins.find(a => a.user.toString()=== userId.toString());
-    if(!CurrentAdmin || !["admin","superAdmin"].includes(CurrentAdmin.role)){
-            return next(new Error("Unauthorized: Only admins can post", 403));
+
+    const CurrentAdmin = CompanyExists.Admins.find(a => a.user.toString() === userId.toString());
+    if(!CurrentAdmin || !["admin", "superAdmin"].includes(CurrentAdmin.role)) {
+        return next(new Error("Unauthorized: Insufficient permissions", 403));
     }
 
-    ActivityExists.text = text || activity.text;
+    ActivityExists.text = text;
     await ActivityExists.save();
-      
 
-
-    const keys = await redisClient.keys(`CompanyActivities:${ActivityExists.CreatedBy}`);
-    if (keys.length > 0) {
-    await redisClient.del(keys);
-    }
-
-   }
+    const keysToDel = [`ActivityInfo:${ActivityId}`, ...(await redisClient.keys(`Activities:${ActivityExists.CreatedBy}:*`)) ];
+    if (keysToDel.length > 0) await redisClient.del(keysToDel);
+}
 
     res.status(200).json({  status: "success",  message: "Activity updated successfully"  });
 });
-//TODO: Delete-Activity (Companies && users) ?//   
+//RED3 Delete (Companies && users) ?//   
 export const DeleteActivity = asyncHandler(async (req, res, next) => {
 
     const { activityId } = req.params;
@@ -189,7 +443,12 @@ export const DeleteActivity = asyncHandler(async (req, res, next) => {
     await ActivityModel.findByIdAndDelete(activityId);
 
     // delete Cache
-    const CommentsCache_key =await redisClient.keys("Comments:*");
+    const ActivityDetailsKey= await redisClient.keys(`ActivityInfo:${activityId}`)
+    const key = await redisClient.keys(`Activities:${userId}:*`);
+    const CommentsCache_key =await redisClient.keys(`Comments:${activityId}`);
+
+    if(ActivityDetailsKey.length >0) {await redisClient.del(ActivityDetailsKey)}
+    if(key.length >0) {await redisClient.del(key)}
     if(CommentsCache_key.length >0) {await redisClient.del(CommentsCache_key)}
   
 
@@ -224,10 +483,14 @@ export const DeleteActivity = asyncHandler(async (req, res, next) => {
     await ActivityModel.findByIdAndDelete(activityId);
 
     
-    const keys = await redisClient.keys(`CompanyActivities:${activity.CreatedBy}`);
-    if (keys.length > 0) {
-    await redisClient.del(keys);
-    }
+    const ActivityDetailsKey= await redisClient.keys(`ActivityInfo:${activityId}`)
+    const key = await redisClient.keys(`Activities:${CompanyExists._id}`);
+    const CommentsCache_key =await redisClient.keys(`Comments:${activityId}`);
+
+
+    if (ActivityDetailsKey.length > 0) {await redisClient.del(ActivityDetailsKey);}
+    if (key.length > 0) {await redisClient.del(key);}
+    if (CommentsCache_key.length > 0) {await redisClient.del(CommentsCache_key);}
 
 
    }
@@ -238,144 +501,185 @@ export const DeleteActivity = asyncHandler(async (req, res, next) => {
 
 
 
+//WHITE========================================Post-Enter-Actions============================================== ====///
 
 
 
-//==>Like
+//YELLOW1 ==>Like
 export const ActivityToggleLike = asyncHandler(async (req, res, next) => {
 
-
     const { postId } = req.body;
-    const userId = req.user._id; //Logged in User
-
-     
+    const userId = req.user._id;
 
     const post = await ActivityModel.findById(postId);
-    if (!post) { return next(new Error("Post not found", { cause: 404 })); }
+    if (!post) return next(new Error("Post not found", { cause: 404 }));
 
-    // check if User Already liked the post
+
     const isLiked = post.likes.includes(userId);
     let messageContent = "";
 
-
-
-
-
-
     if (isLiked) {
-        //  Unlike
         post.likes.pull(userId);
         post.LikesCount = Math.max(0, post.LikesCount - 1);
-
-         
-         
     } else {
-        // to like 
+
         post.likes.push(userId);
         post.LikesCount += 1;
 
-     
+
+
+
         if (post.CreatedBy.toString() !== userId.toString()) {
 
-           const LikedUser = await userModel.findById(userId).select("firstName userProfileImg");
-           messageContent = post.LikesCount <= 1  ? `${LikedUser.firstName} reacted to your activity`: `${LikedUser.firstName} and others reacted to your activity`;
-          
-           
-         
-           const channelName = post.CreatedBy.toString();
+            //User Post
+            if(post.creatorType == "user"){
 
-           MyPusher.trigger(channelName, "UserNotification", {
-                UserIMG: LikedUser.userProfileImg?.public_id,
+            const LikedUser = await userModel.findById(userId).select("firstName lastName userProfileImg");
+            messageContent = post.LikesCount <= 1 ? `${LikedUser.firstName} reacted to your activity` : `${LikedUser.firstName} and others reacted to your activity`;
+
+        
+            MyPusher.trigger(post.CreatedBy.toString(), "UserNotification", {
+                UserIMG: LikedUser.userProfileImg?.secure_url, 
                 Message: messageContent
             });
-         
-            
-     
-            
 
-            await notificationModel.create({ recipient: post.CreatedBy, sender: userId,senderProfileImg:LikedUser.userProfileImg, type: "like", content: messageContent });
+          
+            await notificationModel.create({
+                recipient: post.CreatedBy,
+                sender: userId,
+                senderProfileImg: LikedUser.userProfileImg,
+                type: "like",
+                content: messageContent
+            });
+
+            }
+            //Company Post
+            else if(post.creatorType == "Company"){
+              
+                const LikedUser = await userModel.findById(userId).select("firstName lastName userProfileImg");
+                const OwnedCompany = await companyModel.findOne({_id:post.CreatedBy});
+
+                messageContent = post.LikesCount <= 1 ? `${LikedUser.firstName} ${LikedUser.lastName} reacted to your ${OwnedCompany.CompanyName} activity` : `${LikedUser.firstName} ${LikedUser.lastName} and others reacted to your ${OwnedCompany.CompanyName} activity`;
+
+                const AdminIds = OwnedCompany.Admins.find(a=>a.user._id.toString())
+                 
+                const notificationPromises = AdminIds.map(async (adminId)=>{
+
+                       await MyPusher.trigger(adminId,"new-Notification",{
+                         message:messageContent,
+                         UserImg:LikedUser.userProfileImg?.secure_url
+                       })
+
+                         return notificationModel.create({
+                            recipient: adminId,
+                            sender: userId,
+                            type: "like",
+                            content: messageContent
+                        });
+
+                })
+                
+                await Promise.all(notificationPromises)
+            }
         }
-            
-        
     }
-      
+
     await post.save();
 
+   
+    const specificKeys = [`ActivityInfo:${postId}`,...(await redisClient.keys(`Activities:${post.CreatedBy}:*`)) ];
+   
+    if (specificKeys.length > 0) await redisClient.del(specificKeys);
 
-    //clear cash
-    const key =await redisClient.keys("Activities:*");
-    if(key.length > 0) {await redisClient.del(key)}
-
-
-    res.status(200).json({status: "success", message: isLiked ? "Like removed" : "Like added", likesCount: post.likes.length });
+    res.status(200).json({ status: "success", message: isLiked ? "Like removed" : "Like added", likesCount: post.LikesCount });
 });
+//ORANGE1 ==>Comment
+export const AddComment = asyncHandler(async (req, res, next) => {
 
-//==>Comment
-export const addComment = asyncHandler(async (req, res, next) => {
+    const { ActivityId, text, parentId } = req.body;
+    const userId = req.user._id;
 
-
-    const { ActivityId } = req.body;
-    const { text } = req.body;
-    const userId = req.user._id; // Logged in User
-
-
-
-    //Check if User add text
-    if (!text || text.trim().length === 0) {return next(new Error("Comment text is required", { cause: 400 })); }
-
-    // Check if post exists before add comment
-    const post = await ActivityModel.findOne({_id:ActivityId});
-    if (!post) { return next(new Error("Activity not found", { cause: 404 })); }
-  
  
+    const post = await ActivityModel.findById(ActivityId);
+    if (!post) return next(new Error("Activity not found", { cause: 404 }));
+
+    const newComment = await commentModel.create({
+        ActivityId,
+        userId,
+        text,
+        parentId: parentId || null
+    });
+
+    const userWhoCommented = await userModel.findById(userId).select("firstName lastName userProfileImg");
+    await ActivityModel.findByIdAndUpdate(ActivityId, { $inc: { CommentsCount: 1 } });
+
+
+    const sendNotify = async (recipientId, msg, type) => {
+        if (recipientId.toString() === userId.toString()) return; 
+
+        // Pusher Real-time
+        await MyPusher.trigger(recipientId.toString(), "UserNotification", {
+            UserImg: userWhoCommented.userProfileImg?.secure_url || userWhoCommented.userProfileImg?.public_id,
+            Message: msg,
+            ActivityId: ActivityId
+        });
+
+        // DB Record
+        await notificationModel.create({
+            recipient: recipientId,
+            sender: userId,
+            senderProfileImg: userWhoCommented.userProfileImg,
+            type: type,
+            content: msg
+        });
+    };
+
+  
+
+    if (parentId) {
+      
+        const parentComment = await commentModel.findById(parentId);
+        if (parentComment) {
+            const message = `${userWhoCommented.firstName} replied to your comment`;
+            await sendNotify(parentComment.userId, message, "reply");
+        }
+    } else {
     
-    // create Comment
-    const newComment = await commentModel.create({ ActivityId, userId, text});
+        const message = `${userWhoCommented.firstName} ${userWhoCommented.lastName} commented on your post`;
 
-    // to display user data in the comment
-    const commentData = await commentModel.findById(newComment._id).populate("userId", "firstName lastName userProfileImg userSubTitle");
-
-
-
-
-    if (post.CreatedBy.toString() !== userId.toString()) {
-    // increse Post comment count
-    await ActivityModel.findByIdAndUpdate(ActivityId,{ $inc:{CommentsCount:1}},{new:true})
-
-
-    // Get user data who add comment
-    const CommentedUser = await userModel.findById(userId).select("firstName userProfileImg")
-
-
-    const MessageContent = post.CommentsCount < 1 ? `${CommentedUser.firstName} added new Comment on you post` :`${CommentedUser.firstName} and others added new Comment on you post`;
-
-
-    await MyPusher.trigger(post.CreatedBy.toString(),"newComment",{
-        UserImg:CommentedUser.userProfileImg?.public_id,
-        MessageContent
-    })
-
-
-   
-    await notificationModel.create({ recipient: post.CreatedBy, sender: userId, senderProfileImg:CommentedUser.userProfileImg, type: "comment", content: MessageContent });
-
+        if (post.creatorType === "user") {
+         
+            await sendNotify(post.CreatedBy, message, "comment");
+        } 
+        else if (post.creatorType === "Company") {
+        
+            const company = await companyModel.findById(post.CreatedBy);
+            if (company && company.Admins) {
+                const adminNotifyPromises = company.Admins.map(admin => {
+                    const companyMsg = `${userWhoCommented.firstName} commented on ${company.CompanyName}'s post`;
+                    return sendNotify(admin.user, companyMsg, "comment");
+                });
+                await Promise.all(adminNotifyPromises);
+            }
+        }
     }
-   
-    const key =await redisClient.keys("Comments:*");
-    if(key.length>0) {await redisClient.del(key)}
 
+  
+    const keysToDel = [`Comments:${ActivityId}`, `ActivityInfo:${ActivityId}`];
+    const userKeys = await redisClient.keys(`Activities:${post.CreatedBy}:*`);
+    if (userKeys.length > 0) keysToDel.push(...userKeys);
     
-    const Activiykey =await redisClient.keys("Activities:*");
-    if(Activiykey.length>0) {await redisClient.del(Activiykey)}
+    await redisClient.del(keysToDel);
 
-
-    res.status(201).json({status: "success",message: "Comment added successfully",data: commentData});
+    res.status(201).json({ status: "success", data: newComment });
 });
-export const toggleCommentLike = asyncHandler(async (req, res, next) => {
+export const ToggleCommentLike = asyncHandler(async (req, res, next) => {
 
 
     const { commentId } = req.body;
-    const userId = req.user._id; // Logged in user
+    const userId = req.user._id; 
+
+    
 
     const comment = await commentModel.findById(commentId);
     if (!comment) {return next(new Error("Comment not found", { cause: 404 })); }
@@ -411,35 +715,34 @@ export const toggleCommentLike = asyncHandler(async (req, res, next) => {
 
     await comment.save();
     
+       
 
+
+    const activityOwner = await ActivityModel.findOne({_id:comment.ActivityId})
      
-    const key =await redisClient.keys("Comments:*");
-    if(key.length>0) {await redisClient.del(key)}
+    const specificKeys = [`ActivityInfo:${comment.ActivityId}`,...(await redisClient.keys(`Activities:${activityOwner.CreatedBy}:*`,await redisClient.keys(`Comments:${userId}`))) ];
+   
+    if (specificKeys.length > 0) await redisClient.del(specificKeys);
 
 
 
-    res.status(200).json({
-        status: "success",
-        message: isLiked ? "Like removed from comment" : "Like added to comment",
-        likesCount: comment.likes.length
-    });
+    res.status(200).json({ status: "success", message: isLiked ? "Like removed from comment" : "Like added to comment", likesCount: comment.likes.length });
 });
-export const getPostComments = asyncHandler(async (req, res, next) => {
+export const GetPostComments = asyncHandler(async (req, res, next) => {
 
     
-    const { postId } = req.body;
+    const { ActivityId } = req.body;
 
     
-    const CashKey=`Comments:${req.user._id}`
-
-    const CashedData = await redisClient.get(CashKey)
+    const CashKey=`Comments:${ActivityId}`;
+    const CashedData = await redisClient.get(CashKey);
 
     if(CashedData){
         return res.status(200).json({status:"Success",source:"Cash" ,comments:JSON.parse(CashedData) })
     }
 
 
-    const comments = await commentModel.find({ postId }).populate("userId", "firstName lastName userProfileImg userSubTitle").sort({ createdAt: -1 });
+    const comments = await commentModel.find({ ActivityId }).populate("userId", "firstName lastName userProfileImg userSubTitle").sort({ createdAt: -1 });
      
 
     await redisClient.set(CashKey,JSON.stringify(comments),{EX:3000})
@@ -450,10 +753,14 @@ export const getPostComments = asyncHandler(async (req, res, next) => {
 
     res.status(200).json({status: "success",source:"DataBase", count: comments.length, data: comments});
 });
-export const updateComment = asyncHandler(async (req, res, next) => {
+export const UpdateComment = asyncHandler(async (req, res, next) => {
+
+
     const { commentId } = req.body;
     const { text } = req.body;
     const userId = req.user._id;
+
+
 
     if (!text || text.trim().length === 0) {
         return next(new Error("Comment text is required", { cause: 400 }));
@@ -479,40 +786,40 @@ export const updateComment = asyncHandler(async (req, res, next) => {
 
     res.status(200).json({status: "success", message: "Comment updated successfully", data: comment});
 });
-export const deleteComment = asyncHandler(async (req, res, next) => {
+export const DeleteComment = asyncHandler(async (req, res, next) => {
+
+
     const { commentId } = req.params;
     const userId = req.user._id;
 
     const comment = await commentModel.findById(commentId);
-    if (!comment) {
-        return next(new Error("Comment not found", { cause: 404 }));
-    }
+    if (!comment) return next(new Error("Comment not found", { cause: 404 }));
 
-    // //check if user is authorized
-    if (comment.userId.toString() !== userId.toString()) {
-        return next(new Error("You are not authorized to delete this comment", { cause: 403 }));
+   
+    const activity = await ActivityModel.findById(comment.ActivityId);
+
+   
+   
+    
+    const isCommentOwner = comment.userId.toString() === userId.toString();
+    const isActivityOwner = activity?.CreatedBy.toString() === userId.toString();
+
+
+
+    if (!isCommentOwner && !isActivityOwner) {
+        return next(new Error("Not authorized to delete this comment", { cause: 403 }));
     }
 
     await commentModel.findByIdAndDelete(commentId);
+    await ActivityModel.findByIdAndUpdate(comment.ActivityId, { $inc: { CommentsCount: -1 } });
 
-    await ActivityModel.findByIdAndUpdate(comment.ActivityId,{ $inc:{CommentsCount:-1}},{new:true})
-
-
-    const key =await redisClient.keys("Comments:*");
-    if(key.length>0) {await redisClient.del(key)}
-
-    const Activiykey =await redisClient.keys("Activities:*");
-    if(Activiykey.length>0) {await redisClient.del(Activiykey)}
-
+    const keysToDel = [ `Comments:${comment.ActivityId}`, `ActivityInfo:${comment.ActivityId}`, ...(await redisClient.keys(`Activities:${activity.CreatedBy}:*`)) ];
+    await redisClient.del(keysToDel);
 
     res.status(200).json({ status: "success", message: "Comment deleted successfully" });
 });
-//======
-
-
-
-//==>Repost
-export const createRepost = asyncHandler(async (req, res, next) => {
+//LIME ==>Repost
+export const CreateRepost = asyncHandler(async (req, res, next) => {
 
 
     const { ActivityId } = req.body; // The Original Activity
@@ -554,5 +861,4 @@ export const createRepost = asyncHandler(async (req, res, next) => {
 
 
 
-//======
-///////////////////////////////////////////////////////////////////////////////////////////
+

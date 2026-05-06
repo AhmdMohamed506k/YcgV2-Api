@@ -1,6 +1,7 @@
 import { Schema, model, Types } from "mongoose";
 
-const commentSchema = new Schema({
+const commentSchema = new Schema(
+  {
     ActivityId: {
       type: Types.ObjectId,
       ref: "Activity",
@@ -16,24 +17,31 @@ const commentSchema = new Schema({
       required: [true, "Comment text is required"],
       trim: true,
     },
-   
-    likes: [{ type: Types.ObjectId, ref: "user" }],
-    LikesCount: { 
-      type: Number,
-      default: 0 
-    },
 
-  },{ 
+    likes: [
+      {
+        type: Types.ObjectId,
+        ref: "user",
+      },
+    ],
+    parentId: {
+      type: Types.ObjectId,
+      ref: "Comment",
+      default: null,
+    },
+    LikesCount: {
+      type: Number,
+      default: 0,
+    },
+  },
+  {
     timestamps: true,
     toJSON: { virtuals: true },
-    toObject: { virtuals: true }
-  }
+    toObject: { virtuals: true },
+  },
 );
-
 
 commentSchema.index({ postId: 1, createdAt: -1 });
 commentSchema.index({ userId: 1 });
-
-
 
 export const commentModel = model("Comment", commentSchema);

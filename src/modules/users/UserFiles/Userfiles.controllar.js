@@ -7,7 +7,7 @@ import cloudinary from "../../../utils/Cloudinary/Cloudinary";
 
 
 
-//===> User_CV
+//GREEN3===> User_CV
 export const UploadLoggedInUserCv = asyncHandler(async (req, res, next) => {
     const userExist = await userModel.findById(req.user._id);
     if (!userExist) {
@@ -44,9 +44,6 @@ export const UploadLoggedInUserCv = asyncHandler(async (req, res, next) => {
 
   
 });
-
-
-//===> Revove_User_CV
 export const RemoveOldUserCV = asyncHandler(async (req,res,next)=>{
 
   const {publicId} = req.body;
@@ -64,8 +61,7 @@ export const RemoveOldUserCV = asyncHandler(async (req,res,next)=>{
 
 
 
-
-//===> User_Banner
+//GREEN3===> User_Banner
 export const UploadLoggedInUserBanner = asyncHandler(async (req, res, next) => {
   try {
     const userExist = await userModel.findById(req.user._id);
@@ -105,7 +101,6 @@ export const UploadLoggedInUserBanner = asyncHandler(async (req, res, next) => {
     next(error);
   }
 });
-//===> Remove_User_Banner
 export const RemoveOldUserBanner = asyncHandler(async (req,res,next)=>{
 
   const {publicId} = req.body;
@@ -122,7 +117,8 @@ export const RemoveOldUserBanner = asyncHandler(async (req,res,next)=>{
 })
 
 
-//===> User_Profile_Image
+
+//GREEN3===> User_Profile_Image
 export const UpdateLoggedInUserImageProfile = asyncHandler(async (req, res, next) => {
     try {
       const userExist = await userModel.findById(req.user._id);
@@ -166,7 +162,6 @@ export const UpdateLoggedInUserImageProfile = asyncHandler(async (req, res, next
     }
   }
 );
-//===> Remove_User_Profile_Image
 export const RemoveOldUserProfileImage = asyncHandler(async (req,res,next)=>{
 
   const {publicId} = req.body;

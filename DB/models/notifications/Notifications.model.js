@@ -3,7 +3,7 @@ import { Schema, model, Types } from "mongoose";
 const notificationSchema = new Schema({
     recipient: {
       type: Types.ObjectId,
-      ref: "User",
+      ref: "user",
       required: true,
     },
     senderProfileImg:{
@@ -12,7 +12,7 @@ const notificationSchema = new Schema({
     },
     sender: {
       type: Types.ObjectId,
-      ref: "User",
+      ref: "user",
       required: true,
     },
     type: {

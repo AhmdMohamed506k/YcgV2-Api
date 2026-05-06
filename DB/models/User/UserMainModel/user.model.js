@@ -129,18 +129,14 @@ const userSchema = new Schema(
   },
 );
 
-userSchema.virtual("myFollowers", {
+
+
+///////////////////Followers/////////////////////////
+userSchema.virtual("Followers", {
   ref: "Follow",
   localField: "_id",
   foreignField: "followingId",
 });
-
-userSchema.virtual("myFollowing", {
-  ref: "Follow",
-  localField: "_id",
-  foreignField: "followerId",
-});
-
 userSchema.virtual("followersCount", {
   ref: "Follow",
   localField: "_id",
@@ -148,6 +144,12 @@ userSchema.virtual("followersCount", {
   count: true,
 });
 
+///////////////////Following/////////////////////////
+userSchema.virtual("Following", {
+  ref: "Follow",
+  localField: "_id",
+  foreignField: "followerId",
+});
 userSchema.virtual("followingCount", {
   ref: "Follow",
   localField: "_id",
@@ -155,6 +157,7 @@ userSchema.virtual("followingCount", {
   count: true,
 });
 
+///////////////////Views/////////////////////////
 userSchema.virtual("viewsCount", {
   ref: "View",
   localField: "_id",

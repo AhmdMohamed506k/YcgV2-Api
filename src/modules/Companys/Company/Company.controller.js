@@ -1,4 +1,4 @@
-import { ActivityModel } from "../../../../DB/models/Activitys/Activitys.model.js";
+import { ActivityModel } from "../../../../DB/models/Activities/Activities.model.js";
 import companyModel from "../../../../DB/models/Company/Company.model.js";
 import { userModel } from "../../../../DB/models/User/UserMainModel/user.model.js";
 import { asyncHandler } from "../../../middleware/asyncHandler/asyncHandler.js";
@@ -32,7 +32,8 @@ export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
 
     logoData = { secure_url, public_id };
   }
-
+ 
+  
   const company = await companyModel.create({
     CompanyName,
     ContactEmail,
@@ -85,19 +86,20 @@ export const GetSpecificCompanyDashBoard = asyncHandler(async (req, res, next) =
 
 
   const company = await companyModel.findOne({ "Admins.user": userId })
-  .populate("CompanyFollowers")
-  .populate("CompanyFollowersCount")
-  .populate("CompanyFollowingCount")
-  .populate("CompanyViewsCount");
+  .populate("Followers")
+  .populate("followersCount")
+  .populate("Following")
+  .populate("followingCount")
+  .populate("viewsCount");
 
   resultObject.CompanyInfo=company;
 
 
-  const compantPosts= await ActivityModel.find({CreatedBy:company._id})
+  const companyPosts = await ActivityModel.find({CreatedBy:company._id})
 
   
-  resultObject.companyPosts=compantPosts;
-  resultObject.companyPostsCount=compantPosts.length
+  resultObject.companyPosts=companyPosts;
+  resultObject.companyPostsCount=companyPosts.length
 
 
   if (!company) {
@@ -200,81 +202,6 @@ export const deleteCompany = asyncHandler(async (req, res, next) => {
   res.status(200).json({status: "success",message: "Company deleted securely after multi-factor authorization."});
 });
 //////////////
-
-
-
-// Company_Page_activity
-export const getAllCompanyActivities = asyncHandler(async (req, res, next) => {
-  const { companyId } = req.params; 
-  const { page = 1, limit = 10 } = req.query; 
-  const skip = (page - 1) * limit;
-
-
-  const cashKey = `Feed:${companyId}:p:${page}:l:${limit}`;
-  const cashedData = await redisClient.get(cashKey);
-
-  
-  if (cashedData) {
-    return res.status(200).json({ status: "success", source: "Cache", data: JSON.parse(cashedData) });
-  }
-
-  const result = {
-    totalCount: 0, 
-    data: [],
-    companyInfo: {}
-  };
-
-
-  const company = await companyModel.findById(companyId).select("CompanyName Logo Location");
-  if (!company) return next(new Error("Company not found", 404));
-  result.companyInfo = company;
-
-  
-  const [activities, total] = await Promise.all([
-    ActivityModel.find({ CreatedBy: companyId })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(Number(limit))
-      .populate({
-          path: "comments",
-          populate: { path: "addedBy", select: "firstName lastName profileImage" } 
-      }),
-    ActivityModel.countDocuments({ CreatedBy: companyId })
-  ]);
-
-  result.data = activities;
-  result.totalCount = total;
-
-  await redisClient.set(cashKey, JSON.stringify(result), { EX: 300 });
-  res.status(200).json({ status: "success", source: "DB", result });
-});
-export const getSpecificCompanyActivityInfo = asyncHandler(async (req, res, next) => {
-  const { activityID, CompanyId } = req.body;
-
-  const cashKey = `ActivityDetail:${activityID}`; 
-  const cashedData = await redisClient.get(cashKey);
-
-  if (cashedData) {
-    return res.status(200).json({ status: "success", source: "Cache", data: JSON.parse(cashedData) });
-  }
-
-  const result = { data: {}, companyInfo: {} };
-
-  const company = await companyModel.findById(CompanyId).select("CompanyName Logo Location");
-  if (!company) return next(new Error("Company not found", 404));
-  result.companyInfo = company;
-
-  const activity = await ActivityModel.findById(activityID).populate({
-        path: "comments",
-        populate: { path: "addedBy", select: "firstName lastName profileImage" }
-    });
-
-  if (!activity) return next(new Error("Activity not found", 404));
-  result.data = activity;
-
-  await redisClient.set(cashKey, JSON.stringify(result), { EX: 600 });
-  res.status(200).json({ status: "success", source: "DB", result });
-});
 
 
 

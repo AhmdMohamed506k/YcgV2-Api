@@ -91,42 +91,39 @@ const companySchema = new Schema(
 
 companySchema.index({ CompanyName: "text", Industry: "text" });
 
-///////////////////Followers/////////////////////////
-
-companySchema.virtual("CompanyFollowers", {
+///////////////////Followers///////////////////////
+companySchema.virtual("Followers", {
   ref: "Follow",
   localField: "_id",
   foreignField: "followingId",
 });
-companySchema.virtual("CompanyFollowersCount", {
+companySchema.virtual("followersCount", {
   ref: "Follow",
   localField: "_id",
   foreignField: "followingId",
   count: true,
 });
 
-///////////////////Following/////////////////////////
-
-companySchema.virtual("CompanyFollowing", {
+///////////////////Following///////////////////////
+companySchema.virtual("Following", {
   ref: "Follow",
   localField: "_id",
   foreignField: "followerId",
 });
-companySchema.virtual("CompanyFollowingCount", {
+companySchema.virtual("followingCount", {
   ref: "Follow",
   localField: "_id",
   foreignField: "followerId",
   count: true,
 });
+
 ///////////////////Views/////////////////////////
-
-
-companySchema.virtual("CompanyViewsCount", {
+companySchema.virtual("viewsCount", {
   ref: "View",
   localField: "_id",
   foreignField: "profileId",
   count: true,
 });
 
-const companyModel = model("company", companySchema);
+const companyModel = model("Company", companySchema);
 export default companyModel;

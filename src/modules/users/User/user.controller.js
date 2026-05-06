@@ -9,9 +9,9 @@ import { followModel } from "../../../../DB/models/Follow/follow.model.js";
 import { viewModel } from "../../../../DB/models/Views/viewer.model.js";
 import redisClient  from "../../../utils/redisClient/redisClient.js";
 import MyPusher from "../../../service/Pusher/PusherConfig.js";
-import { ActivityModel } from "../../../../DB/models/Activitys/Activitys.model.js";
 
-// ?=============Register&CreateAccountApis==================? //
+
+//GOLD =============Register&CreateAccountApis==================? //
 export const Register = asyncHandler(async (req, res, next) => {
   // Register
 
@@ -143,7 +143,7 @@ export const AddRegisteredUserCurrentJob = asyncHandler(async (req, res, next) =
     res.status(200).json({ msg: "User Current Job added successfully" });
   }
 );
-export const AddRegisteredUserOtherInformations = asyncHandler(async (req, res,next) => {
+export const AddRegisteredUserOtherInformation = asyncHandler(async (req, res,next) => {
     const { userSubTitle } = req.body;
 
     const user = await userModel.findById(req.user._id);
@@ -182,7 +182,12 @@ export const AddRegisteredUserOtherInformations = asyncHandler(async (req, res,n
   }
 );
 
-//todo: =============LoggedUserApis================== 
+
+
+
+
+//GOLD =============LoggedUserApis================== 
+//CYAN2==> create (1)
 export const Login = asyncHandler(async (req, res, next) => {
   const { email, password } = req.body;
      
@@ -207,7 +212,90 @@ export const Login = asyncHandler(async (req, res, next) => {
   res.status(200).json({ msg: "done", token });
 });
 
-//==> Forget_Password
+//GREEN3==> Get (1)
+export const getLoggedUserProfile = asyncHandler(async (req, res, next) => {
+  const userId = req.user._id;
+
+  //To get Logged in user profile with (followrs && followrs count) and (following && following count)
+  const userProfile = await userModel
+    .findById(userId)
+    .select("-password -Emailverificationcode -EmailverificationisVerified")
+    .populate("followersCount")
+    .populate("followingCount")
+    .populate("viewsCount")
+    .populate({ path: "Following", select: "followingId -_id" })
+    .populate({ path: "Followers", select: "followerId -_id" });
+
+  //Check if id in valid
+  if (!userProfile) {
+    return next(new Error("User not found"));
+  }
+  res.status(200).json({ status: "success", data: { profile: userProfile } });
+});
+
+//YELLOW1==> Update (3)
+export const updateLoggedInUserdata = asyncHandler(async (req, res, next) => {
+  const updates = {};
+
+  if (req.body.firstName) updates.firstName = req.body.firstName;
+  if (req.body.lastName) updates.lastName = req.body.lastName;
+  if (req.body.userSubTitle) updates.userSubTitle = req.body.userSubTitle;
+
+  if (req.body.country) updates["location.country"] = req.body.country;
+  if (req.body.city) updates["location.city"] = req.body.city;
+
+  const user = await userModel.findByIdAndUpdate(
+    req.user._id,
+    { $set: updates },
+    { new: true, runValidators: true }
+  );
+
+  if (!user) {
+    return next(new Error("User not exist"));
+  }
+
+  res.status(200).json({ msg: "Successfully updated", user });
+});
+export const updateLoggedInUserPassword = asyncHandler( async (req, res, next) => {
+    const { password, repassword } = req.body;
+
+    const userExist = await userModel.findById(req.user._id);
+    if (!userExist) {
+      return next(new Error("User not found"));
+    }
+
+    if (password !== repassword) {
+      return next(new Error("Repassword does not match password"));
+    }
+
+    // ✅ await bcrypt.hash
+    const hash = await bcrypt.hash(password, 8);
+
+    const updatePass = await userModel.findByIdAndUpdate(
+      req.user._id,
+      { password: hash },
+      { new: true }
+    );
+
+    if (!updatePass) {
+      return res.status(400).json({ msg: "Sorry, there is an error" });
+    }
+
+    return res.status(200).json({ msg: "Password updated successfully" });
+  }
+);
+export const refreshStatus = asyncHandler(async (req, res, next) => {
+    const userId = req.user._id;
+
+    await userModel.findByIdAndUpdate(userId, {
+        status: "online",
+        lastSeen: new Date() 
+    });
+
+    res.status(200).json({ status: "success", message: "Status heartbeat received" });
+});
+
+//RED3==> ForgetPass (3)
 export const ForgetPassWord = asyncHandler(async (req, res, next) => {
   const { email } = req.body;
 
@@ -274,278 +362,6 @@ export const ResetPassword = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({ msg: "Password changed successfully" });
 });
-
-//==> Get_User_Profile
-export const getLoggedinUserProfile = asyncHandler(async (req, res, next) => {
-  const userId = req.user._id;
-
-  //To get Logged in user profile with (followrs && followrs count) and (following && following count)
-  const userProfile = await userModel
-    .findById(userId)
-    .select("-password -Emailverificationcode -EmailverificationisVerified")
-    .populate("followersCount")
-    .populate("followingCount")
-    .populate("ViewersCount")
-    .populate({ path: "myFollowing", select: "followingId -_id" })
-    .populate({ path: "myFollowers", select: "followerId -_id" });
-
-  //Check if id in valid
-  if (!userProfile) {
-    return next(new Error("User not found"));
-  }
-  res.status(200).json({ status: "success", data: { profile: userProfile } });
-});
-//==> Update_User_ProfileInfo
-export const updateLoggedInUserdata = asyncHandler(async (req, res, next) => {
-  const updates = {};
-
-  if (req.body.firstName) updates.firstName = req.body.firstName;
-  if (req.body.lastName) updates.lastName = req.body.lastName;
-  if (req.body.userSubTitle) updates.userSubTitle = req.body.userSubTitle;
-
-  if (req.body.country) updates["location.country"] = req.body.country;
-  if (req.body.city) updates["location.city"] = req.body.city;
-
-  const user = await userModel.findByIdAndUpdate(
-    req.user._id,
-    { $set: updates },
-    { new: true, runValidators: true }
-  );
-
-  if (!user) {
-    return next(new Error("User not exist"));
-  }
-
-  res.status(200).json({ msg: "Successfully updated", user });
-});
-//==> Change_Loggedin_User_Password
-export const updateLoggedInUserPassword = asyncHandler( async (req, res, next) => {
-    const { password, repassword } = req.body;
-
-    const userExist = await userModel.findById(req.user._id);
-    if (!userExist) {
-      return next(new Error("User not found"));
-    }
-
-    if (password !== repassword) {
-      return next(new Error("Repassword does not match password"));
-    }
-
-    // ✅ await bcrypt.hash
-    const hash = await bcrypt.hash(password, 8);
-
-    const updatePass = await userModel.findByIdAndUpdate(
-      req.user._id,
-      { password: hash },
-      { new: true }
-    );
-
-    if (!updatePass) {
-      return res.status(400).json({ msg: "Sorry, there is an error" });
-    }
-
-    return res.status(200).json({ msg: "Password updated successfully" });
-  }
-);
-
-//==> People_That_user_May_Know 
-export const getPeopleYouMayKnow = asyncHandler(async (req, res, next) => {
-  const userId = req.user._id;
-
-
-  const myFollowing = await followModel.find({ followerId: userId }).distinct("followingId");
-
-  const suggestions = await followModel.aggregate([
-    {
-
-      $match: {
-        followerId: { $in: myFollowing },
-        followingId: { $ne: userId, $nin: myFollowing }
-      }
-
-    },
-    {
-
-      $group: {
-        _id: "$followingId",
-        mutualFriendsCount: { $sum: 1 }
-      }
-
-    },
-    { 
-
-      $sort: {
-         mutualFriendsCount: -1
-       }
-
-    },
-    { 
-
-      $limit: 10 
-
-    },
-    {
-
-      $lookup: {
-        from: "users",
-        localField: "_id",
-        foreignField: "_id",
-        as: "userInfo"
-      }
-
-    },
-    { 
-
-      $unwind: "$userInfo" 
-
-    },
-    {
-
-      $project: {
-        _id: 1,
-        mutualFriendsCount: 1,
-        "userInfo.firstName": 1,
-        "userInfo.lastName": 1,
-        "userInfo.userProfileImg": 1,
-        "userInfo.userSubTitle": 1
-
-      }
-    }
-  ]);
-
-
-  if (suggestions.length === 0) {
-    const fallbackSuggestions = await userModel.find({ _id: { $ne: userId, $nin: myFollowing }, "location.country": req.user.location.country })
-    .select("firstName lastName userProfileImg userSubTitle")
-    .limit(5);
-
-
-    return res.status(200).json({ status: "success", data: fallbackSuggestions });
-  }
-
-
-  res.status(200).json({ status: "success", data: suggestions });
-});
-//==> RefreshUserStatus
-export const refreshStatus = asyncHandler(async (req, res, next) => {
-    const userId = req.user._id;
-
-    await userModel.findByIdAndUpdate(userId, {
-        status: "online",
-        lastSeen: new Date() 
-    });
-
-    res.status(200).json({ status: "success", message: "Status heartbeat received" });
-});
-
-
-//!==================================UserActivities========================================!//
-
-
-export const getHybridFeed = asyncHandler(async (req, res, next) => {
-
-    const userId = req.user._id;
-
-
-
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-
-
-
-    const Cashkey = `Activities:${userId}:page:${page}22`;
-    const CachedData = await redisClient.get(Cashkey);
-
-    if (CachedData) {
-        return res.status(200).json({ status: "Success", source: "Cash", data: JSON.parse(CachedData) });
-    }
-    
-
-
-    // 1-Get User following IDs
-    const myFollowing = await followModel.find({ followerId: userId }).distinct("followingId");
-    const authorIds = [...myFollowing, userId];
-
-
-
-
-    // 2. bring in Activitys from User inner circle
-    let posts = await ActivityModel.find({ CreatedBy: { $in: authorIds } })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate("CreatedBy", "firstName lastName userProfileImg userSubTitle")
-        .populate({  path: "originalActivity",  populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" } 
-    });
-
-
-
-
-
-
-
-    //3.If user Following Activitys are little continue Displaying Globle Activitys
-    if (posts.length < limit) {
-
-        const remainingLimit = limit - posts.length;
-        const excludedIds = posts.map(p => p._id); // To make sure not repeat the same posts
-
-
-        const globalPosts = await ActivityModel.find({
-            _id: { $nin: excludedIds },// To exclude the Posts that displayed in the past
-            CreatedBy: { $nin: authorIds }// to get people who's are outside following circle
-        })
-        .sort({ createdAt: -1 })
-        .limit(remainingLimit)
-        .populate("CreatedBy", "firstName lastName userProfileImg userSubTitle")
-        .populate({  path: "originalActivity",  populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" } });
-
-        posts = [...posts, ...globalPosts];
-    }
-
-    if (posts.length > 0) {
-        await redisClient.set(Cashkey, JSON.stringify(posts), { EX: 300 });
-    }
-
-    res.status(200).json({  status: "success", results: posts.length,  data: posts  });
-});
-export const getUserActivity = asyncHandler(async (req, res, next) => {
-
-
-    const { userId } = req.params; // Logged in User Profile ID
-
-
-    
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
-
-
-
-    const UserActivitys = await ActivityModel.find({ CreatedBy: userId })
-    
-        .sort({ createdAt: -1 }) // the newer Activty First
-        .skip(skip)
-        .limit(limit)
-        .populate("CreatedBy", "firstName lastName userProfileImg userSubTitle")
-        .populate({ path: "originalActivity",populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" }
-
-    });
-
-
-
-    res.status(200).json({status: "success", results: UserActivitys.length, data: UserActivitys});
-});
-
-
-
-
-
-
-
-
-
 
 
 
