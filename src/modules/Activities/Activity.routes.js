@@ -2,6 +2,7 @@ import { Router } from "express";
 import {auth} from '../../middleware/Auth/auth.js';
 import { MulterHost,  validExtensions} from "../../middleware/MulterHost/MulterHost.js";
 import * as AC from "./Activity.controller.js"
+import { activeIdentity } from "../../middleware/activeIdentity/activeIdentity.js";
 const FieldsArray=[ { name: 'image', maxCount: 1 }, { name: 'video', maxCount: 1 }, { name: 'videoCover', maxCount: 1 },]
 
 
@@ -47,7 +48,7 @@ ActivityRouter.delete("/Profiles/DeleteActivity/:activityId", auth,AC.DeleteActi
 
 //YELLOW1 ====> Like (1)
 
-ActivityRouter.patch("/ActivityToggleLike", auth, AC.ActivityToggleLike);  // ✅
+ActivityRouter.patch("/ActivityToggleLike", auth, activeIdentity, AC.ActivityToggleLike);  // ✅
 
 //YELLOW1===============> 
 

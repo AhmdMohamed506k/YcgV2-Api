@@ -12,7 +12,7 @@ const NotificationRouter= Router()
 
 NotificationRouter.get("/GetNotifications",auth, NT.GetMyNotifications);
 
-NotificationRouter.patch("/MarkAsReaded",auth,NT.MarkUserNotificationsAsReaded);
+NotificationRouter.patch("/MarkAsRead",auth,NT.MarkUserNotificationsAsRead);
 
 
 

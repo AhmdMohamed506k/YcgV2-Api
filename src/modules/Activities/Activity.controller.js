@@ -501,232 +501,219 @@ export const DeleteActivity = asyncHandler(async (req, res, next) => {
 
 
 
+
+
+
+
+
 //WHITE========================================Post-Enter-Actions============================================== ====///
 
 
 
 //YELLOW1 ==>Like
 export const ActivityToggleLike = asyncHandler(async (req, res, next) => {
-
-    const { postId } = req.body;
-    const userId = req.user._id;
-
-    const post = await ActivityModel.findById(postId);
+    const { ActivityId } = req.body;
+    const userId = req.identity.id.toString(); 
+    
+    const post = await ActivityModel.findById(ActivityId);
     if (!post) return next(new Error("Post not found", { cause: 404 }));
 
 
-    const isLiked = post.likes.includes(userId);
-    let messageContent = "";
+    const isLiked = post.likes.map(id => id.toString()).includes(userId);
 
     if (isLiked) {
         post.likes.pull(userId);
-        post.LikesCount = Math.max(0, post.LikesCount - 1);
+        post.LikesCount = Math.max(0, (post.LikesCount || 0) - 1);
     } else {
-
         post.likes.push(userId);
-        post.LikesCount += 1;
+        post.LikesCount = (post.LikesCount || 0) + 1;
 
+     
+        const messageContent = post.LikesCount <= 1  ? `${req.identity.name} reacted to your activity` : `${req.identity.name} and ${post.LikesCount - 1} others reacted to your activity`;
 
+        if (post.CreatedBy.toString() !== userId) {
+       
+            const sendPushAndNotify = async (recipientId) => {
+                await MyPusher.trigger(recipientId.toString(), "UserNotification", {
+                    Message: messageContent,
+                    UserImg: req.identity.img,
+                    ActivityId: ActivityId 
+                });
+                await notificationModel.create({
+                    recipient: recipientId,
+                    sender: req.user._id, 
+                    type: "like",
+                    content: messageContent
+                });
+            };
 
-
-        if (post.CreatedBy.toString() !== userId.toString()) {
-
-            //User Post
-            if(post.creatorType == "user"){
-
-            const LikedUser = await userModel.findById(userId).select("firstName lastName userProfileImg");
-            messageContent = post.LikesCount <= 1 ? `${LikedUser.firstName} reacted to your activity` : `${LikedUser.firstName} and others reacted to your activity`;
-
-        
-            MyPusher.trigger(post.CreatedBy.toString(), "UserNotification", {
-                UserIMG: LikedUser.userProfileImg?.secure_url, 
-                Message: messageContent
-            });
-
-          
-            await notificationModel.create({
-                recipient: post.CreatedBy,
-                sender: userId,
-                senderProfileImg: LikedUser.userProfileImg,
-                type: "like",
-                content: messageContent
-            });
-
-            }
-            //Company Post
-            else if(post.creatorType == "Company"){
-              
-                const LikedUser = await userModel.findById(userId).select("firstName lastName userProfileImg");
-                const OwnedCompany = await companyModel.findOne({_id:post.CreatedBy});
-
-                messageContent = post.LikesCount <= 1 ? `${LikedUser.firstName} ${LikedUser.lastName} reacted to your ${OwnedCompany.CompanyName} activity` : `${LikedUser.firstName} ${LikedUser.lastName} and others reacted to your ${OwnedCompany.CompanyName} activity`;
-
-                const AdminIds = OwnedCompany.Admins.find(a=>a.user._id.toString())
-                 
-                const notificationPromises = AdminIds.map(async (adminId)=>{
-
-                       await MyPusher.trigger(adminId,"new-Notification",{
-                         message:messageContent,
-                         UserImg:LikedUser.userProfileImg?.secure_url
-                       })
-
-                         return notificationModel.create({
-                            recipient: adminId,
-                            sender: userId,
-                            type: "like",
-                            content: messageContent
-                        });
-
-                })
-                
-                await Promise.all(notificationPromises)
+            if (post.creatorType === "user") {
+                await sendPushAndNotify(post.CreatedBy);
+            } 
+            else if (post.creatorType === "Company") {
+                const company = await companyModel.findById(post.CreatedBy);
+                if (company) {
+                    const adminPromises = company.Admins.map(admin => sendPushAndNotify(admin.user));
+                    await Promise.all(adminPromises);
+                }
             }
         }
     }
 
     await post.save();
 
-   
-    const specificKeys = [`ActivityInfo:${postId}`,...(await redisClient.keys(`Activities:${post.CreatedBy}:*`)) ];
-   
+  
+    const specificKeys = [`ActivityInfo:${ActivityId}`, ...(await redisClient.keys(`Activities:${post.CreatedBy}:*`))];
     if (specificKeys.length > 0) await redisClient.del(specificKeys);
 
-    res.status(200).json({ status: "success", message: isLiked ? "Like removed" : "Like added", likesCount: post.LikesCount });
+    res.status(200).json({ 
+        status: "success", 
+        message: isLiked ? "Like removed" : "Like added", 
+        likesCount: post.LikesCount 
+    });
 });
 //ORANGE1 ==>Comment
 export const AddComment = asyncHandler(async (req, res, next) => {
-
     const { ActivityId, text, parentId } = req.body;
-    const userId = req.user._id;
+    
+    
+    const { id: senderId, type: senderType, name: senderName, img: senderImg } = req.identity;
 
- 
+   
     const post = await ActivityModel.findById(ActivityId);
     if (!post) return next(new Error("Activity not found", { cause: 404 }));
 
+  
     const newComment = await commentModel.create({
         ActivityId,
-        userId,
+        userId: req.user._id ,
         text,
-        parentId: parentId || null
+        parentId: parentId || null,
+        creatorType: senderType, 
+        CreatedBy: senderId,     
+         
     });
 
-    const userWhoCommented = await userModel.findById(userId).select("firstName lastName userProfileImg");
     await ActivityModel.findByIdAndUpdate(ActivityId, { $inc: { CommentsCount: 1 } });
 
-
+  
+    
+   
     const sendNotify = async (recipientId, msg, type) => {
-        if (recipientId.toString() === userId.toString()) return; 
+        // متبعتش إشعار لنفسك (لو الشخص هو اللي بيرد على نفسه)
+        if (recipientId.toString() === req.user._id.toString()) return;
 
-        // Pusher Real-time
         await MyPusher.trigger(recipientId.toString(), "UserNotification", {
-            UserImg: userWhoCommented.userProfileImg?.secure_url || userWhoCommented.userProfileImg?.public_id,
+            UserImg: senderImg,
             Message: msg,
             ActivityId: ActivityId
         });
 
-        // DB Record
         await notificationModel.create({
             recipient: recipientId,
-            sender: userId,
-            senderProfileImg: userWhoCommented.userProfileImg,
+            sender: req.user._id,
             type: type,
             content: msg
         });
     };
 
   
-
     if (parentId) {
-      
         const parentComment = await commentModel.findById(parentId);
         if (parentComment) {
-            const message = `${userWhoCommented.firstName} replied to your comment`;
-            await sendNotify(parentComment.userId, message, "reply");
+            const replyMsg = `${senderName} replied to your comment`;
+         
+            await sendNotify(parentComment.userId, replyMsg, "reply");
         }
-    } else {
-    
-        const message = `${userWhoCommented.firstName} ${userWhoCommented.lastName} commented on your post`;
+    } 
+    else {
+        const commentMsg = `${senderName} commented on your post`;
 
         if (post.creatorType === "user") {
-         
-            await sendNotify(post.CreatedBy, message, "comment");
+        
+            await sendNotify(post.CreatedBy, commentMsg, "comment");
         } 
         else if (post.creatorType === "Company") {
-        
+         
             const company = await companyModel.findById(post.CreatedBy);
-            if (company && company.Admins) {
-                const adminNotifyPromises = company.Admins.map(admin => {
-                    const companyMsg = `${userWhoCommented.firstName} commented on ${company.CompanyName}'s post`;
-                    return sendNotify(admin.user, companyMsg, "comment");
-                });
-                await Promise.all(adminNotifyPromises);
+            if (company) {
+                const adminPromises = company.Admins.map(admin => 
+                    sendNotify(admin.user, commentMsg, "comment")
+                );
+                await Promise.all(adminPromises);
             }
         }
     }
 
-  
+   
     const keysToDel = [`Comments:${ActivityId}`, `ActivityInfo:${ActivityId}`];
     const userKeys = await redisClient.keys(`Activities:${post.CreatedBy}:*`);
+
     if (userKeys.length > 0) keysToDel.push(...userKeys);
-    
     await redisClient.del(keysToDel);
 
     res.status(201).json({ status: "success", data: newComment });
 });
-export const ToggleCommentLike = asyncHandler(async (req, res, next) => {
-
+export const CommentToggleLike = asyncHandler(async (req, res, next) => {
 
     const { commentId } = req.body;
-    const userId = req.user._id; 
-
-    
+    const { id: likerId, type: likerType, name: senderName, img: senderImg } = req.identity;
 
     const comment = await commentModel.findById(commentId);
-    if (!comment) {return next(new Error("Comment not found", { cause: 404 })); }
+    if (!comment) return next(new Error("Comment not found", { cause: 404 }));
 
-    const isLiked = comment.likes.includes(userId);
+    const isLiked = comment.likes.map(id => id.toString()).includes(likerId.toString());
 
     if (isLiked) {
-        comment.likes.pull(userId);
-        comment.LikesCount = Math.max(0,comment.LikesCount -1)
+        comment.likes.pull(likerId);
+        if (comment.LikesCount !== undefined) comment.LikesCount = Math.max(0, comment.LikesCount - 1);
+
     } else {
-        comment.likes.push(userId);
-        comment.LikesCount += 1
-          
-          
-        if(comment.userId.toString() !== userId.toString()){
+        comment.likes.push(likerId);
+        if (comment.LikesCount !== undefined) comment.LikesCount += 1;
 
+     
+        if (comment.CreatedBy.toString() !== likerId.toString()) {
+            const likeMsg = `${senderName} liked your comment`;
+
+        
+            const sendPush = async (targetId) => {
+                await MyPusher.trigger(targetId.toString(), "UserNotification", {
+                    Message: likeMsg,
+                    UserImg: senderImg,
+                    ActivityId: comment.ActivityId
+                });
+                await notificationModel.create({
+                    recipient: targetId,
+                    sender: req.user._id,
+                    type: "like",
+                    content: likeMsg
+                });
+            };
+
+      
+            if (comment.creatorType === "user") {
+                await sendPush(comment.CreatedBy);
+            } 
          
-
-            const LikedUser= await userModel.findById(userId).select("firstName userProfileImg");
-            const MessageContent = comment.LikesCount < 1 ? `${LikedUser.firstName} Liked your Comment`:`${LikedUser.firstName} and others Liked your Comment`
-            
-            await MyPusher.trigger(comment.userId.toString(),"CommentLike",{
-                UserImg:LikedUser.userProfileImg?.public_id,
-                Message:MessageContent
-            })
-            
-            await notificationModel.create({ recipient: comment.userId, sender: userId,senderProfileImg:LikedUser.userProfileImg ,type: "CommentLike", content: MessageContent });
-
+            else if (comment.creatorType === "Company") {
+                const company = await companyModel.findById(comment.CreatedBy);
+                if (company && company.Admins) {
+                    const adminPromises = company.Admins.map(admin => sendPush(admin.user));
+                    await Promise.all(adminPromises);
+                }
+            }
         }
-
-
     }
 
     await comment.save();
-    
-       
+    await redisClient.del(`Comments:${comment.ActivityId}`);
 
-
-    const activityOwner = await ActivityModel.findOne({_id:comment.ActivityId})
-     
-    const specificKeys = [`ActivityInfo:${comment.ActivityId}`,...(await redisClient.keys(`Activities:${activityOwner.CreatedBy}:*`,await redisClient.keys(`Comments:${userId}`))) ];
-   
-    if (specificKeys.length > 0) await redisClient.del(specificKeys);
-
-
-
-    res.status(200).json({ status: "success", message: isLiked ? "Like removed from comment" : "Like added to comment", likesCount: comment.likes.length });
+    res.status(200).json({ 
+        status: "success", 
+        message: isLiked ? "Like removed" : "Like added",
+        likesCount: comment.LikesCount 
+    });
 });
 export const GetPostComments = asyncHandler(async (req, res, next) => {
 
@@ -755,109 +742,125 @@ export const GetPostComments = asyncHandler(async (req, res, next) => {
 });
 export const UpdateComment = asyncHandler(async (req, res, next) => {
 
+    const { commentId, text } = req.body;
+    const { id: activeId } = req.identity; 
 
-    const { commentId } = req.body;
-    const { text } = req.body;
-    const userId = req.user._id;
-
-
-
-    if (!text || text.trim().length === 0) {
-        return next(new Error("Comment text is required", { cause: 400 }));
-    }
-
+    
     const comment = await commentModel.findById(commentId);
-    if (!comment) {
-        return next(new Error("Comment not found", { cause: 404 }));
-    }
+    if (!comment) return next(new Error("Comment not found", { cause: 404 }));
 
-    //check if user is authorized
-    if (comment.userId.toString() !== userId.toString()) {
+  
+    if (comment.CreatedBy.toString() !== activeId.toString()) {
         return next(new Error("You are not authorized to update this comment", { cause: 403 }));
     }
 
+
     comment.text = text;
+    comment.isUpdated = true; 
     await comment.save();
 
+  
+    await redisClient.del(`Comments:${comment.ActivityId}`);
 
-
-    const key =await redisClient.keys("Comments:*");
-    if(key.length>0) {await redisClient.del(key)}
-
-    res.status(200).json({status: "success", message: "Comment updated successfully", data: comment});
+    res.status(200).json({ status: "success", message: "Comment updated", data: comment });
 });
 export const DeleteComment = asyncHandler(async (req, res, next) => {
-
-
-    const { commentId } = req.params;
-    const userId = req.user._id;
+    const { commentId } = req.body;
+    const { id: activeId } = req.identity;
 
     const comment = await commentModel.findById(commentId);
     if (!comment) return next(new Error("Comment not found", { cause: 404 }));
 
-   
-    const activity = await ActivityModel.findById(comment.ActivityId);
 
-   
-   
-    
-    const isCommentOwner = comment.userId.toString() === userId.toString();
-    const isActivityOwner = activity?.CreatedBy.toString() === userId.toString();
-
-
-
-    if (!isCommentOwner && !isActivityOwner) {
-        return next(new Error("Not authorized to delete this comment", { cause: 403 }));
+    if (comment.CreatedBy.toString() !== activeId.toString()) {
+        return next(new Error("You are not authorized to delete this comment", { cause: 403 }));
     }
 
-    await commentModel.findByIdAndDelete(commentId);
-    await ActivityModel.findByIdAndUpdate(comment.ActivityId, { $inc: { CommentsCount: -1 } });
 
-    const keysToDel = [ `Comments:${comment.ActivityId}`, `ActivityInfo:${comment.ActivityId}`, ...(await redisClient.keys(`Activities:${activity.CreatedBy}:*`)) ];
-    await redisClient.del(keysToDel);
+    const repliesCount = await commentModel.countDocuments({ parentId: commentId });
+    const totalToDelete = repliesCount + 1;
 
-    res.status(200).json({ status: "success", message: "Comment deleted successfully" });
+
+    await commentModel.deleteMany({ 
+        $or: [
+            { _id: commentId }, 
+            { parentId: commentId }
+        ] 
+    });
+
+   
+    await ActivityModel.findByIdAndUpdate(comment.ActivityId, { 
+        $inc: { CommentsCount: -totalToDelete } 
+    });
+
+
+    await redisClient.del(`Comments:${comment.ActivityId}`);
+    await redisClient.del(`ActivityInfo:${comment.ActivityId}`);
+
+    res.status(200).json({ status: "success", message: "Comment and its replies deleted" });
 });
 //LIME ==>Repost
-export const CreateRepost = asyncHandler(async (req, res, next) => {
+export const ActivityRepost = asyncHandler(async (req, res, next) => {
 
 
-    const { ActivityId } = req.body; // The Original Activity
-    const { text } = req.body;     // Optional Taxt That User can add it
-    const userId = req.user._id;
+    const { originalActivityId, content } = req.body;
+    const { id: activeId, type: activeType, name: senderName, img: senderImg } = req.identity;
 
-    // Check if Activity Exists
-    const originalPost = await ActivityModel.findById(ActivityId);
-    if (!originalPost) { return next(new Error("Original post not found", { cause: 404 }));}
+    const originalPost = await ActivityModel.findById(originalActivityId);
+    if (!originalPost) return next(new Error("Original post not found", { cause: 404 }));
 
-    // Add Reposted Activity on the Logged in User Profile
-    const repost = await ActivityModel.create({
-        text, 
-        ActivityType: "repost",
+  
+    const newRepost = await ActivityModel.create({
+        content: content || "",
         isRepost: true,
-        originalActivity: ActivityId, 
-        CreatedBy: userId
+        originalPost: originalActivityId,
+        creatorType: activeType,
+        CreatedBy: activeId,
+        userId: req.user._id 
     });
 
-    // Increment the Reposted Count on the Original Activity
-    await ActivityModel.findByIdAndUpdate(ActivityId, {
-        $inc: { repostsCount: 1 }
+ 
+    await ActivityModel.findByIdAndUpdate(originalActivityId, { 
+        $inc: { repostCount: 1 } 
     });
 
-    // Get the Reposted Activity data with the original Activity Informations
-    const fullRepostData = await ActivityModel.findById(repost._id).populate({ path: "originalActivity",
-        populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" }
-    });
-     
+   
+    if (originalPost.CreatedBy.toString() !== activeId.toString()) {
+        const repostMsg = `${senderName} shared your post`;
 
-    
-    const key =await redisClient.keys("Activities:*");
-    if(key.length>0) {await redisClient.del(key)}
+        const sendNotify = async (recipientId) => {
+            await MyPusher.trigger(recipientId.toString(), "UserNotification", {
+                Message: repostMsg,
+                UserImg: senderImg,
+                ActivityId: newRepost._id 
+            });
+            await notificationModel.create({
+                recipient: recipientId,
+                sender: req.user._id,
+                type: "repost",
+                content: repostMsg
+            });
+        };
 
+        if (originalPost.creatorType === "user") {
+            await sendNotify(originalPost.CreatedBy);
+        } else if (originalPost.creatorType === "Company") {
+            const company = await companyModel.findById(originalPost.CreatedBy);
+            if (company) {
+                const adminPromises = company.Admins.map(admin => sendNotify(admin.user));
+                await Promise.all(adminPromises);
+            }
+        }
+    }
 
-    res.status(201).json({status: "success",message: "Activity reposted successfully", data: fullRepostData});
+   
+    const keysToDel = [`Activities:${activeId}:*` , `ActivityInfo:${originalActivityId}`];
+    const userKeys = await redisClient.keys(`Activities:${activeId}:*`);
+    if (userKeys.length > 0) await redisClient.del(userKeys);
+    await redisClient.del(`ActivityInfo:${originalActivityId}`);
+
+    res.status(201).json({ status: "success", data: newRepost });
 });
-
 
 
 

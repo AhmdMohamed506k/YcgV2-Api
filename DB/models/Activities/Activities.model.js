@@ -33,7 +33,7 @@ const ActivitySchema = new Schema(
       type: Number,
       default: 0,
     },
-    repostsCount: {
+    repostCount: {
       type: Number,
       default: 0,
     },

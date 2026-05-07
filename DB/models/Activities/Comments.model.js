@@ -17,22 +17,31 @@ const commentSchema = new Schema(
       required: [true, "Comment text is required"],
       trim: true,
     },
-
     likes: [
       {
         type: Types.ObjectId,
         ref: "user",
       },
     ],
+    LikesCount: {
+      type: Number,
+      default: 0,
+    },
     parentId: {
       type: Types.ObjectId,
       ref: "Comment",
       default: null,
     },
-    LikesCount: {
-      type: Number,
-      default: 0,
+    creatorType: {
+      type: String,
+      enum: ['user', 'Company'], 
+      default: 'user'
     },
+    CreatedBy: { 
+    type: Types.ObjectId, 
+    required: true 
+    } 
+
   },
   {
     timestamps: true,

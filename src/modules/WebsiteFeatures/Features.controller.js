@@ -20,9 +20,10 @@ import { viewModel } from "../../../DB/models/Views/viewer.model.js";
 //GREEN3==> Toggle-Follow
 export const ToggleFollow = asyncHandler(async (req, res, next) => {
     const { followingId, onModel } = req.body; 
-    const userId = req.user._id;
+  
+    const { id: activeId, type: activeType, name: activeName, img: activeImg } = req.identity;
 
-    if (followingId.toString() === userId.toString()) {
+    if (followingId.toString() === activeId.toString()) {
         return next(new Error("You cannot follow yourself", { cause: 400 }));
     }
 
@@ -30,97 +31,91 @@ export const ToggleFollow = asyncHandler(async (req, res, next) => {
     const targetExists = await TargetModel.findById(followingId);
     if (!targetExists) return next(new Error(`${onModel} not found`, { cause: 404 }));
 
-    const existingFollow = await followModel.findOne({ followerId: userId, followingId, onModel });
+    const existingFollow = await followModel.findOne({ 
+        followerId: activeId, 
+        followingId, 
+        onModel 
+    });
 
     if (existingFollow) {
         // --- Unfollow Logic ---
         await followModel.deleteOne({ _id: existingFollow._id });
         await TargetModel.findByIdAndUpdate(followingId, { $inc: { followersCount: -1 } });
-        await userModel.findByIdAndUpdate(userId, { $inc: { followingCount: -1 } });
+      
+        const FollowerModel = activeType === 'user' ? userModel : companyModel;
+        await FollowerModel.findByIdAndUpdate(activeId, { $inc: { followingCount: -1 } });
 
         res.status(200).json({ status: "success", message: "Unfollowed successfully" });
     } else {
         // --- Follow Logic ---
-        await followModel.create({ followerId: userId, followingId, onModel });
+        await followModel.create({ 
+            followerId: activeId, 
+            followerType: activeType, 
+            followingId, 
+            onModel 
+        });
+
         await TargetModel.findByIdAndUpdate(followingId, { $inc: { followersCount: 1 } });
-        await userModel.findByIdAndUpdate(userId, { $inc: { followingCount: 1 } });
+        const FollowerModel = activeType === 'user' ? userModel : companyModel;
+        await FollowerModel.findByIdAndUpdate(activeId, { $inc: { followingCount: 1 } });
 
-        const followerUser = await userModel.findById(userId).select("firstName userProfileImg");
-        const message = `${followerUser.firstName} started following ${onModel === 'User' ? 'you' : targetExists.CompanyName}`;
+        const message = `${activeName} started following ${onModel === 'User' ? 'you' : targetExists.CompanyName || targetExists.name}`;
 
-   
-        if (onModel === 'User') {
-           
-            await MyPusher.trigger(followingId.toString(), "UserNotification", {
+        const sendNotify = async (recipientId) => {
+            await MyPusher.trigger(recipientId.toString(), "UserNotification", {
                 Message: message,
-                UserImg: followerUser.userProfileImg?.secure_url
+                UserImg: activeImg
             });
-            await notificationModel.create({ recipient: followingId, sender: userId, type: "follow", content: message });
-        } 
-        else if (onModel === 'Company') {
-         
-            const adminIds = targetExists.Admins.map(admin => admin.user.toString());
-
-            const notificationPromises = adminIds.map(async (adminId) => {
-              
-                await MyPusher.trigger(adminId, "UserNotification", {
-                    Message: message,
-                    UserImg: followerUser.userProfileImg?.secure_url,
-                    CompanyId: followingId 
-                });
-
-       
-                return notificationModel.create({
-                    recipient: adminId,
-                    sender: userId,
-                    type: "follow",
-                    content: message
-                });
+            await notificationModel.create({
+                recipient: recipientId,
+                sender: req.user._id, 
+                type: "follow",
+                content: message
             });
+        };
 
-            await Promise.all(notificationPromises);
+        if (onModel === 'User') {
+            await sendNotify(followingId);
+        } else if (onModel === 'Company') {
+            const adminPromises = targetExists.Admins.map(admin => sendNotify(admin.user));
+            await Promise.all(adminPromises);
         }
 
         res.status(200).json({ status: "success", message: "Followed successfully" });
     }
 
-   
-    const keys = await redisClient.keys(`NewsFeed:${userId}:*`);
+    
+    const keys = await redisClient.keys(`NewsFeed:${activeId}:*`);
     if (keys.length > 0) await redisClient.del(keys);
 });
-
 
 //RED1:==================================================View_Operation===============================================================
 //YELLOW2==> Record-View
 export const recordProfileView = asyncHandler(async(req,res,next)=>{
+   
+    const { id: viewerId, type: viewerType } = req.identity; 
+    const { profileId } = req.body; 
 
-    const viewerId = req.user._id.toString(); //Logged in user
-    const { profileId } = req.body; // watched profile
-
-     console.log(profileId)
-    if (viewerId === profileId) {
-      return res.status(200).json({ message: "Self-view ignored" });
+    if (viewerId.toString() === profileId.toString()) {
+        return res.status(200).json({ message: "Self-view ignored" });
     }
-
 
     const viewCacheKey = `view:${viewerId}:${profileId}`;
     const isViewedRecently = await redisClient.get(viewCacheKey);
 
-
-
     if (!isViewedRecently) {
-   
-      await viewModel.create({ viewerId, profileId });
+        await viewModel.create({ 
+            viewerId, 
+            viewerType, 
+            profileId 
+        });
 
-
-      await redisClient.set(viewCacheKey, "true", { EX: 3600  });
-
-     
+        await redisClient.set(viewCacheKey, "true", { EX: 3600 });
+        
+      
     } 
 
     res.status(200).json({ status: "success", message: "View processed" });
-
-
 });
 
 
