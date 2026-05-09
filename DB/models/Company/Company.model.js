@@ -81,6 +81,10 @@ const companySchema = new Schema(
       type: Boolean,
       default: false,
     },
+    totalViews: {
+    type: Number,
+    default: 0
+    }
   },
   {
     timestamps: true,

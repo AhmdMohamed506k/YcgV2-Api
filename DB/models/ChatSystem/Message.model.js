@@ -5,39 +5,47 @@ const messageSchema = new Schema(
     chatId: {
       type: Types.ObjectId,
       ref: "Chat",
-
       required: true,
     },
     senderId: {
       type: Types.ObjectId,
-      ref: "user",
-      refPath: "onModel",
       required: true,
+      refPath: "senderType", 
     },
-    receiverId: {
-      type: Types.ObjectId,
-      ref: "user",
-      refPath: "onModel",
-      required: true,
-    },
-    onModel: {
+    senderType: {
       type: String,
       required: true,
       enum: ["User", "Company"],
     },
-    text: {
-      type: String,
-      trim: true,
+    receiverId: {
+      type: Types.ObjectId,
+      required: true,
+      refPath: "receiverType", 
     },
-    media: {
+    receiverType: {
+      type: String,
+      required: true,
+      enum: ["User", "Company"],
+    },
+    text: { 
+      type: String,
+      trim: true 
+    },
+    media: { 
       public_id: String,
-      secure_url: String,
+      secure_url: String 
     },
     status: {
       type: String,
       enum: ["sent", "delivered", "seen"],
       default: "sent",
     },
+
+    realSenderId: { 
+      type: Types.ObjectId, 
+      ref: "user",
+      required: true 
+    }, 
   },
   { timestamps: true },
 );

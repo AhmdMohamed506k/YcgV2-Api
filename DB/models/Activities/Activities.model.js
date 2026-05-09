@@ -6,6 +6,11 @@ const ActivitySchema = new Schema(
       type: String,
       trim: true,
     },
+    RepostContent: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     ActivityType: {
       type: String,
       enum: ["text", "image", "video", "repost"],
@@ -73,6 +78,15 @@ const ActivitySchema = new Schema(
 ActivitySchema.index({ CreatedBy: 1, createdAt: -1 });
 ActivitySchema.index({ originalActivity: 1 });
 
+///////////////////PostView///////////////////////////////////
+ActivitySchema.virtual('views', {
+    ref: 'ActivityView',      
+    localField: '_id',        
+    foreignField: 'activityId' 
+});
+
+
+///////////////////Comments///////////////////////////////////
 ActivitySchema.virtual("comments", {
   ref: "Comment",
   localField: "_id",

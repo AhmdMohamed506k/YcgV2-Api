@@ -135,39 +135,65 @@ export const GetActivities = asyncHandler(async(req,res,next)=>{
 
 
 })
-export const GetSpecificActivityInfo = asyncHandler(async(req,res,next)=>{
+export const GetSpecificActivityInfo = asyncHandler(async (req, res, next) => {
 
-  const {activityId}=req.params;
-  const userId=req.user._id
+    
+    const { activityId } = req.params;
+    const { id: viewerId, type: viewerType } = req.identity; 
 
+    const CacheKey = `ActivityInfo:${activityId}`;
+    const CachedData = await redisClient.get(CacheKey);
+
+    
+     
+ 
+    const viewCacheKey = `postView:${activityId}:${viewerId}`;
+    const alreadyViewed = await redisClient.get(viewCacheKey);
+
+    if (!alreadyViewed) {
   
-  const CacheKey=`ActivityInfo:${activityId}`;
-  const CachedData= await redisClient.get(CacheKey);
+    const post = await ActivityModel.findById(activityId).select("CreatedBy creatorType");
+    
+    if (post && post.CreatedBy.toString() !== viewerId.toString()) {
+      
+        await activityViewModel.create({ activityId, viewerId, viewerType });
+        
+       
+        await ActivityModel.findByIdAndUpdate(activityId, { $inc: { ViewsCount: 1 } });
 
-  if(CachedData){
-  return res.status(200).json({msg:"Done", status:"success",source:"Cache",data:JSON.parse(CachedData)})
-  }
+     
+        if (post.creatorType === "Company") {
+            await companyModel.findByIdAndUpdate(post.CreatedBy, { 
+                $inc: { totalViews: 1 } 
+            });
+        }
 
+      
+        await redisClient.set(viewCacheKey, "true", { EX: 3600 });
+        await redisClient.del(CacheKey); 
+    }
+}
 
-  const ActivityExists=await ActivityModel.findById(activityId)
-  .populate({path:"CreatedBy", select:"firstName lastName userProfileImg userProfileImg CompanyName Logo "})
-  .populate({path:"comments",
-    populate:{path:"userId",select:"firstName lastName userProfileImg"}
-})  
+    if (CachedData) {
+        return res.status(200).json({ status: "success", source: "Cache", data: JSON.parse(CachedData) });
+    }
 
+    const ActivityExists = await ActivityModel.findById(activityId)
+        .populate({ path: "CreatedBy", select: "firstName lastName userProfileImg CompanyName Logo" })
+        .populate({
+            path: "comments",
+            populate: { path: "userId", select: "firstName lastName userProfileImg" }
+        })
+        .populate("views"); 
 
+    if (!ActivityExists) {
+        return next(new Error("Sorry, Activity not Exists", { cause: 404 }));
+    }
 
-  if (!ActivityExists) {
-    return next(new Error("Sorry, Activity not Exists"),404)
-  }
+    await redisClient.set(CacheKey, JSON.stringify(ActivityExists), { EX: 300 });
 
-  await redisClient.set(CacheKey,JSON.stringify(ActivityExists),{EX:300})
-
-  
-  res.status(200).json({msg:"done", status:"success",source:"DB" ,data:ActivityExists})
-
-
-})
+    res.status(200).json({ status: "success", source: "DB", data: ActivityExists });
+});
 
 //YELLOW2 Create (Companies && users) !//
 export const CreateActivity = asyncHandler(async (req, res, next) => {
@@ -724,8 +750,11 @@ export const GetPostComments = asyncHandler(async (req, res, next) => {
     const CashKey=`Comments:${ActivityId}`;
     const CashedData = await redisClient.get(CashKey);
 
+
     if(CashedData){
-        return res.status(200).json({status:"Success",source:"Cash" ,comments:JSON.parse(CashedData) })
+      const Data=JSON.parse(CashedData)
+        
+        return res.status(200).json({status:"Success",source:"Cash", count: Data.length,comments:Data })
     }
 
 
@@ -805,18 +834,23 @@ export const ActivityRepost = asyncHandler(async (req, res, next) => {
 
     const { originalActivityId, content } = req.body;
     const { id: activeId, type: activeType, name: senderName, img: senderImg } = req.identity;
-
+     
+    console.log(req.identity);
+    
     const originalPost = await ActivityModel.findById(originalActivityId);
     if (!originalPost) return next(new Error("Original post not found", { cause: 404 }));
 
+    console.log(originalPost);
   
     const newRepost = await ActivityModel.create({
-        content: content || "",
+        RepostContent: content || "",
         isRepost: true,
-        originalPost: originalActivityId,
+        originalActivity: originalActivityId,
         creatorType: activeType,
         CreatedBy: activeId,
-        userId: req.user._id 
+        userId: req.user._id,
+        addedBy:originalPost.addedBy,
+        ActivityType:"repost"
     });
 
  

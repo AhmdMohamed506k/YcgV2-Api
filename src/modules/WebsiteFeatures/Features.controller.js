@@ -118,7 +118,6 @@ export const recordProfileView = asyncHandler(async(req,res,next)=>{
     res.status(200).json({ status: "success", message: "View processed" });
 });
 
-
 //RED1:==================================================People-You-May-Know===============================================================
 //ORANGE1==> People-You-May-Know
 export const getPeopleYouMayKnow = asyncHandler(async (req, res, next) => {

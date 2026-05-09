@@ -5,101 +5,107 @@ import { messageModel } from "../../../DB/models/ChatSystem/Message.model.js";
 import MyPusher from "../../service/Pusher/PusherConfig.js";
 
 
-
 export const sendMessage = asyncHandler(async (req, res, next) => {
+    const { receiverId, receiverType, text } = req.body;
+    const { id: senderId, type: senderType, name: senderName, img: senderImg } = req.identity;
 
-    const { receiverId, text } = req.body;
-    const senderId = req.user._id; //loggedIn user
-    const fullUserName = req.user.firstName + req.user.lastName //loggedIn User Full name
+    // 1. البحث عن شات يجمع بين الطرفين بهويتهم (يوزر-يوزر، يوزر-شركة.. إلخ)
+    let chat = await chatModel.findOne({
+        participantIds: { $all: [senderId, receiverId] }
+    });
 
-
-    
-    let chat= await chatModel.findOne({
-        participants:{$all:[senderId,receiverId]}
-    })
-    if(!chat){
-        chat= await chatModel.create({
-            participants:[senderId,receiverId],
-            senderId,   
-            receiverId,
-            newMessagesCount:0
-        })
+    if (!chat) {
+        chat = await chatModel.create({
+            participants: [
+                { participantId: senderId, participantType: senderType },
+                { participantId: receiverId, participantType: receiverType }
+            ],
+            participantIds: [senderId, receiverId],
+            startedBy: req.user._id, // اليوزر الحقيقي اللي بدأ الشات
+            unreadCounts: [
+                { participantId: senderId, count: 0 },
+                { participantId: receiverId, count: 0 }
+            ]
+        });
     }
-    const newMessage=await messageModel.create({
-        chatId:chat._id,
+
+    // 2. إنشاء الرسالة
+    const newMessage = await messageModel.create({
+        chatId: chat._id,
         senderId,
+        senderType,
         receiverId,
+        receiverType,
+        realSenderId: req.user._id,
         text
-    })
+    });
 
-    chat.lastMessage = newMessage._id;
-    chat.senderId = newMessage.senderId;
-    chat.receiverId=newMessage.receiverId;
-    chat.MessagIsReaded=false
-    chat.newMessagesCount +=1
+    // 3. تحديث الشات وزيادة العداد للمستلم فقط
+    await chatModel.findByIdAndUpdate(chat._id, {
+        lastMessage: newMessage._id,
+        $inc: { "unreadCounts.$[elem].count": 1 }
+    }, {
+        arrayFilters: [{ "elem.participantId": receiverId }],
+        new: true
+    });
 
-    await chat.save()
+    // 4. إرسال Pusher (القناة تعتمد على ID المستلم سواء شركة أو يوزر)
+    await MyPusher.trigger(receiverId.toString(), "new-message", {
+        chatId: chat._id,
+        message: {
+            _id: newMessage._id,
+            text: newMessage.text,
+            senderId,
+            senderName,
+            senderProfileImg: senderImg,
+            createdAt: newMessage.createdAt
+        }
+    });
 
-
-
-    await MyPusher.trigger(`user-${receiverId}`,"new Message",{
-        chat:chat._id,
-        message:{
-            _id:newMessage._id,
-            text:newMessage.text,
-            senderId:senderId,
-            senderName:fullUserName,
-            senderProfileImg:req.user.userProfileImg,
-            createdAt:newMessage.createdAt
-        },
-        newMessagesCount:chat.newMessagesCount
-    })
-
-
-    res.status(201).json({ status: "success", message: "Message sent successfully", data: newMessage});
+    res.status(201).json({ status: "success", data: newMessage });
 });
 
-export const GetMyChats = asyncHandler(async(req,res,next)=>{
+export const GetMyChats = asyncHandler(async (req, res, next) => {
+    const { id: activeId } = req.identity;
 
+    const chats = await chatModel.find({ participantIds: activeId })
+        .populate({
+            path: "participants.participantId",
+            select: "firstName lastName userProfileImg CompanyName Logo userSubTitle status"
+        })
+        .populate("lastMessage")
+        .sort({ updatedAt: -1 });
 
-    const chats = await chatModel.find({participants:req.user._id}).populate({
-        path:"participants",
-        select:("user","firstName lastName userProfileImg userSubTitle status lastSeen")
-    })
-    .populate("lastMessage").sort({updatedAt:-1});
-
-    res.status(200).json({status:"success",data: chats})
-
-})
+    res.status(200).json({ status: "success", data: chats });
+});
 
 export const GetSpecificChatHistory = asyncHandler(async (req, res, next) => {
     const { chatId } = req.params;
-    const userId = req.user._id;
+    const { id: activeId } = req.identity;
 
-   
+    // 1. جلب الرسايل مع عمل populate للراسل الحقيقي (اختياري للرقابة)
     const MessagesHistory = await messageModel.find({ chatId })
-    .populate("senderId", "firstName lastName userProfileImg")
-    .sort({ createdAt: 1 });
+        .sort({ createdAt: 1 });
 
-  
+    // 2. تصفير العداد للمشارك الحالي في هذا الشات
     const chat = await chatModel.findOneAndUpdate(
-        { _id: chatId, receiverId: userId }, 
-        { $set: { newMessagesCount: 0, MessagIsReaded: true } },
+        { _id: chatId, "unreadCounts.participantId": activeId },
+        { $set: { "unreadCounts.$.count": 0 } },
         { new: true }
     );
 
-  
+    // 3. تحديث حالة الرسايل التي لم يرسلها المستخدم الحالي لتصبح "seen"
     const updateResult = await messageModel.updateMany(
-        { chatId, senderId: { $ne: userId }, status: "sent" },
+        { chatId, receiverId: activeId, status: "sent" },
         { $set: { status: "seen" } }
     );
 
-    
-    if (updateResult.modifiedCount > 0) {
-        const otherParticipant = chat?.participants.find(id => id.toString() !== userId.toString());
-
-        if (otherParticipant) {
-            await MyPusher.trigger(`user-${otherParticipant}`, "messages-seen", { chatId });
+    // 4. إبلاغ الطرف الآخر عبر Pusher أن الرسايل شوهدت
+    if (updateResult.modifiedCount > 0 && chat) {
+        const otherParticipantId = chat.participantIds.find(id => id.toString() !== activeId.toString());
+        
+        if (otherParticipantId) {
+            await MyPusher.trigger(otherParticipantId.toString(), "messages-seen", { chatId });
         }
     }
 

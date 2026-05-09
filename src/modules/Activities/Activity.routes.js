@@ -21,11 +21,8 @@ ActivityRouter.post("/createActivity", auth,MulterHost([...validExtensions.image
 
 
 //GREEN3 ====> Display (3)
-
 ActivityRouter.get("/Home", auth,AC.getHybridFeed);
-
-ActivityRouter.get("/GetAllActivities/:OwnerId",auth,AC.GetActivities)
-
+ActivityRouter.get("/GetAllActivities/:OwnerId",auth,AC.GetActivities);
 ActivityRouter.get("/Profiles/ActivityDetails/:activityId", auth,AC.GetSpecificActivityInfo);
 
 
@@ -57,26 +54,24 @@ ActivityRouter.patch("/ActivityToggleLike", auth, activeIdentity, AC.ActivityTog
 //ORANGE1 ===> Comment (6)
 
 //WHITE: Create(2)
-ActivityRouter.put("/AddNewComment", auth, AC.AddComment); // ✅
-
-ActivityRouter.patch("/Comment/ToggleCommentLike", auth, AC.ToggleCommentLike);  // ✅
+ActivityRouter.put("/AddNewComment", auth,activeIdentity, AC.AddComment); // ✅
+ActivityRouter.patch("/Comment/ToggleCommentLike", auth,activeIdentity, AC.CommentToggleLike);  // ✅
 
 //GREEN3: Display(1)
 ActivityRouter.get("/Comments/getPostComments", auth, AC.GetPostComments); //✅
 
 //CYAN1: Update(1)
-ActivityRouter.put("/Comment/UpdateComment", auth, AC.UpdateComment);//✅
+ActivityRouter.put("/Comment/UpdateComment", auth,activeIdentity, AC.UpdateComment);//✅
 
 //RED3: Delete(1)
-ActivityRouter.delete("/Comments/DeleteComment/:commentId", auth, AC.DeleteComment);
+ActivityRouter.delete("/Comments/DeleteComment/:commentId", auth,activeIdentity, AC.DeleteComment);
 
 //ORANGE1==========================>
 
 
 
 //LIME ===> Repost(1)
-
-ActivityRouter.post("/Activities/RepostActivity", auth, AC.CreateRepost);
+ActivityRouter.post("/repost/RepostActivity", auth,activeIdentity, AC.ActivityRepost);
 
 //LIME =========================> 
 
