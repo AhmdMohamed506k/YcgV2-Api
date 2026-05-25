@@ -10,7 +10,7 @@ import redisClient from "../../../utils/redisClient/redisClient.js";
 
 
 
-// Company_Page_CRUD
+//RED3 Company_Page_CRUD
 export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
   const { CompanyName, ContactEmail, Industry, OrganizationSize, OrganizationType, Website, Location, Description,} = req.body;
   
@@ -202,6 +202,15 @@ export const deleteCompany = asyncHandler(async (req, res, next) => {
   res.status(200).json({status: "success",message: "Company deleted securely after multi-factor authorization."});
 });
 //////////////
+
+//ORANGE1 Page-Jobs-Posts
+
+
+
+
+
+
+
 
 
 

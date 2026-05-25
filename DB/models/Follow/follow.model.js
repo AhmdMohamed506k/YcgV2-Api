@@ -3,7 +3,7 @@ import { Schema, Types, model } from "mongoose";
 const followSchema = new Schema({
     followerId: {
       type: Types.ObjectId,
-      ref: "User",
+      ref: "user",
       required: true,
     },
     followingId: {

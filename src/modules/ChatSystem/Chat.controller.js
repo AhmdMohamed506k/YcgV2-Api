@@ -6,6 +6,7 @@ import MyPusher from "../../service/Pusher/PusherConfig.js";
 
 
 export const sendMessage = asyncHandler(async (req, res, next) => {
+    
     const { receiverId, receiverType, text } = req.body;
     const { id: senderId, type: senderType, name: senderName, img: senderImg } = req.identity;
 
@@ -41,13 +42,13 @@ export const sendMessage = asyncHandler(async (req, res, next) => {
     });
 
     // 3. تحديث الشات وزيادة العداد للمستلم فقط
-    await chatModel.findByIdAndUpdate(chat._id, {
-        lastMessage: newMessage._id,
-        $inc: { "unreadCounts.$[elem].count": 1 }
-    }, {
+    await chatModel.findByIdAndUpdate(chat._id, {lastMessage: newMessage._id, $inc: { "unreadCounts.$[elem].count": 1 } }, {
+
         arrayFilters: [{ "elem.participantId": receiverId }],
         new: true
+        
     });
+
 
     // 4. إرسال Pusher (القناة تعتمد على ID المستلم سواء شركة أو يوزر)
     await MyPusher.trigger(receiverId.toString(), "new-message", {

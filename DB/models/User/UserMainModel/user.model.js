@@ -64,10 +64,19 @@ const userSchema = new Schema(
     stripeCustomerId: {
       type: String,
     },
-    userCV: {
-      secure_url: { type: String, default: null },
-      public_id: { type: String, default: null },
+
+    userCVs: [{
+
+    customName: { 
+      type: String, 
+      default: null ,
+      trim: true 
     },
+    secure_url: { type: String, default: null  },
+    public_id: { type: String, default: null  },
+    uploadedAt: { type: Date, default: Date.now }
+  }
+    ],
     userProfileImg: {
       secure_url: { type: String, default: null },
       public_id: { type: String, default: null },

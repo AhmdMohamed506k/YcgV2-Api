@@ -62,7 +62,7 @@ export const Register = asyncHandler(async (req, res, next) => {
     next(new Error("Sorry an Error happened"));
   }
 });
-export const VerfiyUserAccount = asyncHandler(async (req, res, next) => {
+export const VerifyUserAccount = asyncHandler(async (req, res, next) => {
   const { Emailverificationcode } = req.body;
   
   const userExist = await userModel.findOne({Emailverificationcode});
@@ -362,6 +362,269 @@ export const ResetPassword = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({ msg: "Password changed successfully" });
 });
+
+
+
+
+
+//GOLD =============User-Files================== 
+
+
+//GREEN3===> User_CV
+export const UploadUserCv = asyncHandler(async (req, res, next) => {
+    const userId = req.user._id;
+    const { customName } = req.body; 
+    const cacheKey = `user:cvs:${userId}`; 
+
+    
+    if (!req.file) {
+        return next(new Error("Please upload a CV file", { cause: 400 }));
+    }
+    if (!customName) {
+        return next(new Error("CV custom name is required", { cause: 400 }));
+    }
+
+    
+    const user = await userModel.findById(userId).select("userCVs");
+    if (user.userCVs && user.userCVs.length >= 4) {
+        return next(new Error("You have reached the maximum limit of 4 CVs. Delete one to upload a new one.", { cause: 400 }));
+    }
+
+  
+    const isNameDuplicate = user.userCVs.some(cv => cv.customName.trim().toLowerCase() === customName.trim().toLowerCase());
+    if (isNameDuplicate) {
+        return next(new Error("Please try a different CV name, this name already exists.", { cause: 400 }));
+    }
+
+  
+    const folderPath = `Ycg/users/${userId}/${req.user.firstName || "user"}_${req.user.lastName || ""}/UserCVs/cv_${user.userCVs.length + 1}`;
+    const cloudinaryResponse = await cloudinary.uploader.upload(req.file.path, {
+        folder: folderPath,
+        public_id: `${customName.replace(/\s+/g, '_')}_${Date.now()}` 
+    });
+
+  
+    const updatedUser = await userModel.findByIdAndUpdate(
+        userId,
+        {
+            $push: {
+                userCVs: {
+                    customName,
+                    secure_url: cloudinaryResponse.secure_url,
+                    public_id: cloudinaryResponse.public_id
+                }
+            }
+        },
+        { new: true, select: "userCVs" }
+    );
+   
+  
+    await redisClient.del(cacheKey);
+
+    res.status(201).json({
+        status: "success",
+        message: "CV uploaded and cache updated successfully",
+        data: updatedUser.userCVs
+    });
+});
+export const GetUserCvs = asyncHandler(async (req, res, next) => {
+    const userId = req.user._id;
+    const cacheKey = `user:cvs:${userId}`;
+
+    const cachedCvs = await redisClient.get(cacheKey);
+    
+    if (cachedCvs) {
+        return res.status(200).json({
+            status: "success",
+            source: "Cache", // علامة عشان تعرف إن البيانات جاية من الريدوس
+            data: JSON.parse(cachedCvs)
+        });
+    }
+
+    // 2. لو مش موجودة في الكاش، بنروح نجيبها من قاعدة البيانات (MongoDB)
+    const user = await userModel.findById(userId).select("userCVs");
+    
+    if (!user) {
+        return next(new Error("User not found", { cause: 404 }));
+    }
+
+    const cvsList = user.userCVs || [];
+
+    // 3. تخزين البيانات في Redis مع وضع وقت انتهاء (TTL) وليكن ساعة (3600 ثانية) حماية للذاكرة
+    await redisClient.set(cacheKey, JSON.stringify(cvsList), { EX: 3600 });
+
+    res.status(200).json({
+        status: "success",
+        source: "Database", // جاية من الـ DB لأول مرة
+        data: cvsList
+    });
+});
+export const DeleteUserCv = asyncHandler(async (req, res, next) => {
+    const userId = req.user._id;
+    const { cvId } = req.body; 
+    const cacheKey = `user:cvs:${userId}`;
+
+    
+    const user = await userModel.findOne({ _id: userId, "userCVs._id": cvId });
+    if (!user) {
+        return next(new Error("CV not found or you don't have permission to delete it", { cause: 404 }));
+    }
+
+  
+    const targetCv = user.userCVs.id(cvId);
+
+
+    await cloudinary.uploader.destroy(targetCv.public_id);
+
+   
+    const folderPath = targetCv.public_id.substring(0, targetCv.public_id.lastIndexOf("/"));
+
+  
+    try {
+        await cloudinary.api.delete_folder(folderPath);
+
+    } catch (folderError) {
+        
+        console.error("Cloudinary folder delete warning:", folderError.message);
+    }
+
+
+    const updatedUser = await userModel.findByIdAndUpdate(
+        userId,
+        {
+            $pull: { userCVs: { _id: cvId } }
+        },
+        { new: true, select: "userCVs" }
+    );
+
+
+    await redisClient.del(cacheKey);
+
+    res.status(200).json({
+        status: "success",
+        message: "CV and its folder deleted successfully, cache updated",
+        data: updatedUser.userCVs
+    });
+});
+
+//GREEN3===> User_Banner
+export const UploadLoggedInUserBanner = asyncHandler(async (req, res, next) => {
+  try {
+    const userExist = await userModel.findById(req.user._id);
+
+    if (!userExist) {
+      return next(new Error("User not found"));
+    }
+
+    if (!req.file) {
+      return next(new Error("No file uploaded"));
+    }
+
+
+    const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path,{
+        folder: `Ycg/users/${req.user._id}/${req.user.firstName || ""}_${req.user.lastName || "" }/userBanner`,
+      }
+    );
+
+    const upload = await userModel.findOneAndUpdate(
+      { _id: req.user._id, status: "online" },
+      { userBanner: { secure_url, public_id } },
+      { new: true }
+    );
+
+    if (!upload) {
+      return next(
+        new Error(
+          "You are offline or an error occurred while updating userBanner"
+        )
+      );
+    }
+
+    res.status(201).json({
+      msg: "userBanner uploaded successfully",
+      userBanner: upload.userBanner,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+export const RemoveOldUserBanner = asyncHandler(async (req,res,next)=>{
+
+  const {publicId} = req.body;
+   
+  const UserExist = await userModel.findOneAndUpdate({"userBanner.public_id": publicId},{"userBanner.public_id":null ,"userBanner.secure_url":null},{new:true})
+  if(!UserExist){return next(new Error("User not found or Invalid Id"))}
+   
+ 
+  
+  const result =  await cloudinary.uploader.destroy(publicId);
+
+  res.status(200).json({msg:"Deleted Successfully"})
+
+})
+
+//GREEN3===> User_Profile_Image
+export const UpdateLoggedInUserImageProfile = asyncHandler(async (req, res, next) => {
+    try {
+      const userExist = await userModel.findById(req.user._id);
+      if (!userExist) {
+        return next(new Error("User not found"));
+      }
+
+      if (!req.file) {
+        return next(new Error("No file uploaded"));
+      }
+
+      if (userExist.userProfileImg.public_id) {
+        await cloudinary.uploader.destroy(userExist.userProfileImg.public_id);
+      }
+
+      const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path, {
+          folder: `Ycg/users/${req.user._id}/${req.user.firstName || ""}_${ req.user.lastName || "" }/ProfileImage`,
+        }
+      );
+
+      const upload = await userModel.findOneAndUpdate(
+        { _id: req.user._id, status: "online" },
+        { userProfileImg: { secure_url, public_id } },
+        { new: true }
+      );
+
+      if (!upload) {
+        return next(
+          new Error(
+            "You are offline or an error occurred while updating userProfileImg"
+          )
+        );
+      }
+
+      res.status(201).json({
+        msg: "userProfileImg uploaded successfully",
+        userProfileImg: upload.userProfileImg,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+export const RemoveOldUserProfileImage = asyncHandler(async (req,res,next)=>{
+
+  const {publicId} = req.body;
+   
+  const UserExist = await userModel.findOneAndUpdate({"userProfileImg.public_id": publicId},{"userProfileImg.public_id":null ,"userProfileImg.secure_url":null},{new:true})
+  if(!UserExist){return next(new Error("User not found or Invalid Id"))}
+   
+
+  
+  const result =  await cloudinary.uploader.destroy(publicId);
+
+  res.status(200).json({msg:"Deleted Successfully"})
+
+})
+
+
+
+
 
 
 
