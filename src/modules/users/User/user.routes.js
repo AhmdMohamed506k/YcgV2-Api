@@ -37,17 +37,13 @@ UserRouter.get("/getLoggedUserProfile", auth, us.getLoggedUserProfile);//* getLo
 
 //YELLOW1 update (3)
 UserRouter.put("/updateLoggedInUserPassword", auth, us.updateLoggedInUserPassword);//* updateLoggedInUserPassword
-
 UserRouter.put("/updateLoggedInUserdata", auth, us.updateLoggedInUserdata);//* updateLoggedInUserdata
-
 UserRouter.get("/refresh-status", auth, us.refreshStatus);//* refreshUserStatus
 
 
 //RED3 ForgetPass (3)
 UserRouter.put("/ForgetPassword", us.ForgetPassWord); //* ForgetPassWord
-
 UserRouter.put("/CheckResetCode", us.CheckResetCode);//* CheckResetCode
-
 UserRouter.put("/ResetPassword", us.ResetPassword);//* ResetPassword
 
 
@@ -57,23 +53,18 @@ UserRouter.put("/ResetPassword", us.ResetPassword);//* ResetPassword
 //YELLOW2 ===============User-Files================ !//
 
 
-
-
-
 //GREEN3==>UserCV Methods
 UserRouter.post("/UserCv",auth,MulterHost(validExtensions.cv).single("userCV"),us.UploadUserCv);
 UserRouter.delete("/DeleteUserCv",auth,us.DeleteUserCv);
+UserRouter.get("/GetUserCv",auth,us.GetUserCvs);
 
 
 //GREEN3==>UserBanner Methods
-UserRouter.post("/UploadLoggedInUserBanner",auth, MulterHost(validExtensions.image).single("userBanner"), us.UploadLoggedInUserBanner);
-UserRouter.delete("/RemoveOldUserBanner",auth,us.RemoveOldUserBanner);
-
-
+UserRouter.patch("/ToggleUpdateUserBanner",auth, MulterHost(validExtensions.image).single("userBanner"),us.ToggleUpdateUserBanner);
 
 //GREEN3==>UserProfileImage Methods
-UserRouter.post("/UpdateLoggedInUserImageProfile", auth , MulterHost(validExtensions.image).single("UserProfileImg") ,  us.UpdateLoggedInUserImageProfile);
-UserRouter.delete("/RemoveOldUserProfileImage",auth,us.RemoveOldUserProfileImage);
+UserRouter.patch("/ToggleUpdateUserProfileImage", auth , MulterHost(validExtensions.image).single("UserProfileImg") ,us.ToggleUpdateUserProfileImage);
+
 
 
 

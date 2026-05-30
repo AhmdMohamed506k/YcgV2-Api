@@ -63,40 +63,32 @@ export const Register = asyncHandler(async (req, res, next) => {
   }
 });
 export const VerifyUserAccount = asyncHandler(async (req, res, next) => {
-  const { Emailverificationcode } = req.body;
+  const { EmailVerificationCode } = req.body;
+ 
   
-  const userExist = await userModel.findOne({Emailverificationcode});
+  const userExist = await userModel.findOne({EmailVerificationCode});
   if (!userExist) {
     return next(new Error("User Not Exist"));
   }
 
-
-  
-
- 
-
-  if (userExist.EmailverificationisVerified == true ) {
+  if (userExist.EmailVerificationIsVerified == true ) {
      return next(new Error("Account already verified", 400));
   }
 
-  if (userExist.Emailverificationcode !== Emailverificationcode) {
+  if (userExist.EmailVerificationCode !== EmailVerificationCode) {
     return next(new Error("Sorry invalid verification code"));
   }
 
-  userExist.Emailverificationcode = "";
-  userExist.EmailverificationisVerified = true;
+  userExist.EmailVerificationCode = "";
+  userExist.EmailVerificationIsVerified = true;
   await userExist.save();
 
-   const token = jwt.sign(
-    {
-      userId: userExist._id,
-      email: userExist.email,
-    },
-    process.env.tokenKey,
-    { expiresIn: "7d" }
-  );
+  const token = jwt.sign({ userId: userExist._id,email: userExist.email, },process.env.tokenKey,{ expiresIn: "7d" });
+   
+  const cacheKey = `user:profile:${userExist._id}`;
+  await redisClient.del(cacheKey)
   
-  res.status(200).json({ msg: "verified successfully" , usertoken:token });
+  res.status(200).json({ msg: "verified successfully" , userToken:token });
 });
 export const AddRegisteredUserName = asyncHandler(async (req, res, next) => {
   const { firstName, lastName } = req.body;
@@ -104,81 +96,61 @@ export const AddRegisteredUserName = asyncHandler(async (req, res, next) => {
 
 
   const user = await userModel.findByIdAndUpdate(req.user._id,{ firstName, lastName },{ new: true, runValidators: true });
+  if (!user) {return next(new Error("User not found"));}
 
-  if (!user) {
-    return next(new Error("User not found"));
-  }
+
+  await redisClient.del(`user:profile:${user._id}`);
+
   res.status(200).json({ msg: "Username added successfully" });
 });
 export const AddRegisteredUserLocation = asyncHandler(async (req, res, next) => {
     const { country, city } = req.body;
+   
+    
 
-    const user = await userModel.findByIdAndUpdate(
-      req.user._id,
-      { "location.country": country, "location.city": city },
-      { new: true, runValidators: true }
-    );
+    const user = await userModel.findByIdAndUpdate(req.user._id,{ "location.country": country, "location.city": city },{ new: true, runValidators: true });
+    if (!user) {return next(new Error("User not found"));}
 
-    if (!user) {
-      return next(new Error("User not found"));
-    }
+    await redisClient.del(`user:profile:${user._id}`);
     res.status(200).json({ msg: "User location added successfully" });
   }
 );
 export const AddRegisteredUserCurrentJob = asyncHandler(async (req, res, next) => {
     const { JopTitle, EmploymentType } = req.body;
+  
 
-    const user = await userModel.findByIdAndUpdate(
-      req.user._id,
-      {
-        "UserCurrentJob.JopTitle": JopTitle,
-        "UserCurrentJob.EmploymentType": EmploymentType,
-      },
-      { new: true, runValidators: true }
-    );
-
-    if (!user) {
-      return next(new Error("User not found"));
-    }
+    const user = await userModel.findByIdAndUpdate(req.user._id,{"UserCurrentJob.JopTitle": JopTitle,"UserCurrentJob.EmploymentType": EmploymentType,},{ new: true, runValidators: true });
+    if (!user) { return next(new Error("User not found")); }
+    
+    await redisClient.del(`user:profile:${user._id}`);
+      
     res.status(200).json({ msg: "User Current Job added successfully" });
   }
 );
 export const AddRegisteredUserOtherInformation = asyncHandler(async (req, res,next) => {
     const { userSubTitle } = req.body;
 
+
     const user = await userModel.findById(req.user._id);
     if (!user) return next(new Error("User does not exist"));
 
-    if (!req.file) return next(new Error("Profile image is required"));
 
-    const { secure_url, public_id } = await cloudinary.uploader.upload(
-      req.file.path,
-      {
-        folder: `Ycg/users/${req.user._id}/${req.user.firstName || ""}_${
-          req.user.lastName || ""
-        }/ProfileImage`,
+    if (!req.file){
+      return next(new Error("Profile image is required"))
+    };
+
+
+    const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path,{
+        folder: `Ycg/users/${req.user._id}/${req.user.firstName || ""}_${req.user.lastName || ""}/ProfileImage`,
       }
     );
 
-    const updatedUser = await userModel.findByIdAndUpdate(
-      req.user._id,
-      {
-        $set: {
-          userSubTitle,
-          userProfileImg: { secure_url, public_id },
-        },
-      },
-      { new: true }
-    );
+    const updatedUser = await userModel.findByIdAndUpdate(req.user._id,{$set: { userSubTitle,userProfileImg: { secure_url, public_id },},},{ new: true });
 
-    if (!updatedUser) {
-      return next(new Error("Failed to update user information"));
-    } else {
-      res.status(200).json({
-        msg: "User information updated successfully",
-        user: updatedUser,
-      });
-    }
+    await redisClient.del(`user:profile:${updatedUser._id}`);
+  
+    res.status(200).json({msg: "User information updated successfully",user: updatedUser});
+    
   }
 );
 
@@ -216,23 +188,38 @@ export const Login = asyncHandler(async (req, res, next) => {
 export const getLoggedUserProfile = asyncHandler(async (req, res, next) => {
   const userId = req.user._id;
 
-  //To get Logged in user profile with (followrs && followrs count) and (following && following count)
+  const cacheKey = `user:profile:${userId}`;
+  const cachedProfile = await redisClient.get(cacheKey);
+  
+
+  if (cachedProfile) {
+    return res.status(200).json({status: "success",source:"Cache", data: { profile: JSON.parse(cachedProfile)}});
+  }
+
+
+
+
   const userProfile = await userModel
     .findById(userId)
-    .select("-password -Emailverificationcode -EmailverificationisVerified")
+    .select("-password -EmailVerificationCode -EmailVerificationIsVerified -ForgetPassCode -isForgetCodeVerified") 
     .populate("followersCount")
     .populate("followingCount")
     .populate("viewsCount")
     .populate({ path: "Following", select: "followingId -_id" })
     .populate({ path: "Followers", select: "followerId -_id" });
 
-  //Check if id in valid
+
   if (!userProfile) {
-    return next(new Error("User not found"));
+    return next(new Error("User not found", { cause: 404 }));
   }
+
+  await redisClient.del(`user:cvs:${userId}`);
+
+  await redisClient.set(cacheKey, JSON.stringify(userProfile), { EX: 3600});
+
+
   res.status(200).json({ status: "success", data: { profile: userProfile } });
 });
-
 //YELLOW1==> Update (3)
 export const updateLoggedInUserdata = asyncHandler(async (req, res, next) => {
   const updates = {};
@@ -249,41 +236,33 @@ export const updateLoggedInUserdata = asyncHandler(async (req, res, next) => {
     { $set: updates },
     { new: true, runValidators: true }
   );
-
+  
   if (!user) {
     return next(new Error("User not exist"));
   }
-
+   await redisClient.del(`user:profile:${user._id}`);
+  
   res.status(200).json({ msg: "Successfully updated", user });
 });
-export const updateLoggedInUserPassword = asyncHandler( async (req, res, next) => {
-    const { password, repassword } = req.body;
+export const updateLoggedInUserPassword = asyncHandler(async (req, res, next) => {
+    const { password, RePassword } = req.body;
+
+    if (password !== RePassword) {
+      return next(new Error("RePassword does not match password", { cause: 400 }));
+    }
 
     const userExist = await userModel.findById(req.user._id);
-    if (!userExist) {
-      return next(new Error("User not found"));
-    }
+    if (!userExist) { return next(new Error("User not found", { cause: 404 })); }
 
-    if (password !== repassword) {
-      return next(new Error("Repassword does not match password"));
-    }
+  
+    userExist.password = await bcrypt.hash(password, 8);
+    await userExist.save();
 
-    // ✅ await bcrypt.hash
-    const hash = await bcrypt.hash(password, 8);
-
-    const updatePass = await userModel.findByIdAndUpdate(
-      req.user._id,
-      { password: hash },
-      { new: true }
-    );
-
-    if (!updatePass) {
-      return res.status(400).json({ msg: "Sorry, there is an error" });
-    }
+   
+    await redisClient.del(`user:profile:${userExist._id}`);
 
     return res.status(200).json({ msg: "Password updated successfully" });
-  }
-);
+});
 export const refreshStatus = asyncHandler(async (req, res, next) => {
     const userId = req.user._id;
 
@@ -310,59 +289,58 @@ export const ForgetPassWord = asyncHandler(async (req, res, next) => {
   UserExist.ForgetPassCode = OTP;
   await UserExist.save();
 
-  await sendEmail(
-    email,
-    "Rest your password",
-    `<h1> your code is ${OTP} </h1>`
-  );
+  await sendEmail( email,"Rest your password",`<h1> your code is ${OTP} </h1>`);
 
-  res
-    .status(200)
-    .json({ msg: "Code Sent successfully please Check your Email" });
+
+  
+
+  res.status(200).json({ msg: "Code Sent successfully please Check your Email" });
 });
 export const CheckResetCode = asyncHandler(async (req, res, next) => {
-  const { Code } = req.body;
 
-  const UserExist = await userModel.findOne({ ForgetPassCode: Code });
-  if (!UserExist) {
-    return next(new Error("Sorry User Not Exist"));
+  const { Code, email } = req.body; 
+
+ 
+  if (!Code || Code.trim() === "") {
+    return next(new Error("Invalid Code", { cause: 400 }));
   }
 
+  const UserExist = await userModel.findOne({ email, ForgetPassCode: Code });
   if (!UserExist) {
-    return next(new Error("Invalid Code"));
+    return next(new Error("Invalid Code or Email", { cause: 400 }));
   }
 
-  UserExist.ForgetPassCode = "";
+  
+  UserExist.isForgetCodeVerified = true;
   await UserExist.save();
-
+  
   res.status(200).json({ msg: "Code is valid" });
 });
 export const ResetPassword = asyncHandler(async (req, res, next) => {
   const { email, newPassword } = req.body;
 
   if (!email || !newPassword) {
-    return next(new Error("All fields are required"));
+    return next(new Error("All fields are required", { cause: 400 }));
   }
 
   const useExist = await userModel.findOne({ email });
-  if (!useExist) {
-    return next(new Error("User not found"));
+  if (!useExist) { return next(new Error("User not found", { cause: 404 })); }
+
+  if (useExist.isForgetCodeVerified !== true) {
+    return next(new Error("Please verify your reset code first", { cause: 400 }));
   }
 
-  // Verify reset code
-  if (useExist.ForgetPassCode !== "") {
-    return next(new Error("Sorry there is an Error please try again later"));
-  }
-
-  // Hash password
-  const hashedPassword = await bcrypt.hash(newPassword, 12);
-
-  useExist.password = hashedPassword;
+ 
+  useExist.password = await bcrypt.hash(newPassword, 12);
+  useExist.ForgetPassCode = "";
+  useExist.isForgetCodeVerified = false; 
   await useExist.save();
+
+ 
+  await redisClient.del(`user:profile:${useExist._id}`);
 
   res.status(200).json({ msg: "Password changed successfully" });
 });
-
 
 
 
@@ -428,36 +406,27 @@ export const UploadUserCv = asyncHandler(async (req, res, next) => {
     });
 });
 export const GetUserCvs = asyncHandler(async (req, res, next) => {
-    const userId = req.user._id;
-    const cacheKey = `user:cvs:${userId}`;
 
-    const cachedCvs = await redisClient.get(cacheKey);
+  const userId = req.user._id;
+  const cacheKey = `user:cvs:${userId}`;
+
+  const cachedCvs = await redisClient.get(cacheKey);
     
-    if (cachedCvs) {
-        return res.status(200).json({
-            status: "success",
-            source: "Cache", // علامة عشان تعرف إن البيانات جاية من الريدوس
-            data: JSON.parse(cachedCvs)
-        });
-    }
+  if (cachedCvs) {
+  return res.status(200).json({ status: "success", source: "Cache", data: JSON.parse(cachedCvs)});
+  }
 
-    // 2. لو مش موجودة في الكاش، بنروح نجيبها من قاعدة البيانات (MongoDB)
-    const user = await userModel.findById(userId).select("userCVs");
-    
-    if (!user) {
-        return next(new Error("User not found", { cause: 404 }));
-    }
 
-    const cvsList = user.userCVs || [];
+  const user = await userModel.findById(userId).select("userCVs");
+  if (!user) {return next(new Error("User not found", { cause: 404 }));}
 
-    // 3. تخزين البيانات في Redis مع وضع وقت انتهاء (TTL) وليكن ساعة (3600 ثانية) حماية للذاكرة
-    await redisClient.set(cacheKey, JSON.stringify(cvsList), { EX: 3600 });
 
-    res.status(200).json({
-        status: "success",
-        source: "Database", // جاية من الـ DB لأول مرة
-        data: cvsList
-    });
+  const cvsList = user.userCVs || [];
+
+  
+  await redisClient.set(cacheKey, JSON.stringify(cvsList), { EX: 3600 });
+
+  res.status(200).json({status: "success",source: "Database", data: cvsList });
 });
 export const DeleteUserCv = asyncHandler(async (req, res, next) => {
     const userId = req.user._id;
@@ -508,121 +477,120 @@ export const DeleteUserCv = asyncHandler(async (req, res, next) => {
 });
 
 //GREEN3===> User_Banner
-export const UploadLoggedInUserBanner = asyncHandler(async (req, res, next) => {
-  try {
-    const userExist = await userModel.findById(req.user._id);
+export const ToggleUpdateUserBanner = asyncHandler(async (req, res, next) => {
+    const userId = req.user._id;
+    const cacheKey = `user:profile:${userId}`;
 
-    if (!userExist) {
-      return next(new Error("User not found"));
-    }
 
     if (!req.file) {
-      return next(new Error("No file uploaded"));
+        return next(new Error("Please upload a banner image file", { cause: 400 }));
     }
 
-
-    const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path,{
-        folder: `Ycg/users/${req.user._id}/${req.user.firstName || ""}_${req.user.lastName || "" }/userBanner`,
-      }
-    );
-
-    const upload = await userModel.findOneAndUpdate(
-      { _id: req.user._id, status: "online" },
-      { userBanner: { secure_url, public_id } },
-      { new: true }
-    );
-
-    if (!upload) {
-      return next(
-        new Error(
-          "You are offline or an error occurred while updating userBanner"
-        )
-      );
-    }
-
-    res.status(201).json({
-      msg: "userBanner uploaded successfully",
-      userBanner: upload.userBanner,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-export const RemoveOldUserBanner = asyncHandler(async (req,res,next)=>{
-
-  const {publicId} = req.body;
-   
-  const UserExist = await userModel.findOneAndUpdate({"userBanner.public_id": publicId},{"userBanner.public_id":null ,"userBanner.secure_url":null},{new:true})
-  if(!UserExist){return next(new Error("User not found or Invalid Id"))}
-   
- 
   
-  const result =  await cloudinary.uploader.destroy(publicId);
+    const user = await userModel.findById(userId).select("userBanner firstName lastName");
+    if (!user) { return next(new Error("User not found", { cause: 404 }));}
 
-  res.status(200).json({msg:"Deleted Successfully"})
+    const uploadBanner = async () => {
 
-})
+        const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path, {
+            folder: `Ycg/users/${userId}/${user.firstName || "user"}_${user.lastName || ""}/userBanner`,
+        });
+
+        const updatedUser = await userModel.findByIdAndUpdate(userId,  { userBanner: { secure_url, public_id } },{ new: true, select: "userBanner" });
+        
+        await redisClient.del(cacheKey);
+        return updatedUser; 
+    };
+
+    let finalUser;
+
+  
+    if (user.userBanner !=null && user.userBanner.public_id !=null) {
+        try {
+        
+          await cloudinary.uploader.destroy(user.userBanner.public_id);
+          const FolderPath = user.userBanner.public_id.substring(0, user.userBanner.public_id.lastIndexOf('/'));
+          await cloudinary.api.delete_folder(FolderPath);
+        
+        } catch (cloudinaryError) {
+          console.error("Warning: Failed to delete old banner or folder:", cloudinaryError.message);
+        }
+
+     
+        finalUser = await uploadBanner();
+
+        return res.status(200).json({ status: "success", message: "User banner successfully replaced and cached the new banner", userBanner: finalUser.userBanner });
+
+    } else {
+  
+        finalUser = await uploadBanner();
+
+        return res.status(200).json({
+            status: "success",
+            message: "User banner uploaded successfully and cache cleared",
+            userBanner: finalUser.userBanner
+        });
+    }
+});
 
 //GREEN3===> User_Profile_Image
-export const UpdateLoggedInUserImageProfile = asyncHandler(async (req, res, next) => {
-    try {
-      const userExist = await userModel.findById(req.user._id);
-      if (!userExist) {
-        return next(new Error("User not found"));
-      }
+export const ToggleUpdateUserProfileImage = asyncHandler(async (req, res, next) => {
 
-      if (!req.file) {
-        return next(new Error("No file uploaded"));
-      }
-
-      if (userExist.userProfileImg.public_id) {
-        await cloudinary.uploader.destroy(userExist.userProfileImg.public_id);
-      }
-
-      const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path, {
-          folder: `Ycg/users/${req.user._id}/${req.user.firstName || ""}_${ req.user.lastName || "" }/ProfileImage`,
-        }
-      );
-
-      const upload = await userModel.findOneAndUpdate(
-        { _id: req.user._id, status: "online" },
-        { userProfileImg: { secure_url, public_id } },
-        { new: true }
-      );
-
-      if (!upload) {
-        return next(
-          new Error(
-            "You are offline or an error occurred while updating userProfileImg"
-          )
-        );
-      }
-
-      res.status(201).json({
-        msg: "userProfileImg uploaded successfully",
-        userProfileImg: upload.userProfileImg,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-export const RemoveOldUserProfileImage = asyncHandler(async (req,res,next)=>{
-
-  const {publicId} = req.body;
-   
-  const UserExist = await userModel.findOneAndUpdate({"userProfileImg.public_id": publicId},{"userProfileImg.public_id":null ,"userProfileImg.secure_url":null},{new:true})
-  if(!UserExist){return next(new Error("User not found or Invalid Id"))}
-   
+    const userId = req.user._id;
+    const cacheKey = `user:profile:${userId}`;
 
   
-  const result =  await cloudinary.uploader.destroy(publicId);
+    if (!req.file) {
+        return next(new Error("Please upload a profile image file", { cause: 400 }));
+    }
 
-  res.status(200).json({msg:"Deleted Successfully"})
+   
+    const user = await userModel.findById(userId).select("userProfileImg firstName lastName");
+    if (!user) {
+        return next(new Error("User not found", { cause: 404 }));
+    }
 
-})
+   
+    const uploadProfileImage = async () => {
+        const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path, {
+            folder: `Ycg/users/${userId}/${user.firstName || "user"}_${user.lastName || ""}/ProfileImage`,
+        });
 
+        const updatedUser = await userModel.findByIdAndUpdate(userId, { userProfileImg: { secure_url, public_id } },{ new: true, select: "userProfileImg" });
 
+        await redisClient.del(cacheKey);
+        
+        return updatedUser;
+    };
+
+    let finalUser;
+
+   
+    if (user.userProfileImg !=null && user.userProfileImg.public_id !=null ) {
+        try {
+            
+          await cloudinary.uploader.destroy(user.userProfileImg.public_id);
+          const FolderPath = user.userProfileImg.public_id.substring(0, user.userProfileImg.public_id.lastIndexOf('/'));
+          await cloudinary.api.delete_folder(FolderPath);
+            
+          console.log(`Old profile image and folder deleted from Cloudinary: ${user.userProfileImg.public_id}`);
+
+        } catch (cloudinaryError) {
+          console.error("Warning: Failed to delete old profile image or folder:", cloudinaryError.message);
+        }
+
+      
+        finalUser = await uploadProfileImage();
+
+        return res.status(200).json({ status: "success", message: "User profile image successfully replaced and cache cleared", userProfileImg: finalUser.userProfileImg });
+
+    } else {
+
+        finalUser = await uploadProfileImage();
+
+        return res.status(200).json({status: "success",message: "User profile image uploaded successfully and cache cleared",userProfileImg: finalUser.userProfileImg});
+    }
+});
 
 
 

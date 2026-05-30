@@ -54,14 +54,14 @@ const companySchema = new Schema(
     },
     HrManager: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: "user",
       required: true,
     },
     Admins: [
       {
         user: {
           type: Schema.Types.ObjectId,
-          ref: "User",
+          ref: "user",
           required: true,
         },
         role: {
@@ -74,7 +74,7 @@ const companySchema = new Schema(
     Employees: [
       {
         type: Schema.Types.ObjectId,
-        ref: "User",
+        ref: "user",
       },
     ],
     IsVerified: {

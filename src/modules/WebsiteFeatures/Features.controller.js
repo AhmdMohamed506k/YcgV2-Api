@@ -20,47 +20,65 @@ import { viewModel } from "../../../DB/models/Views/viewer.model.js";
 //GREEN3==> Toggle-Follow
 export const ToggleFollow = asyncHandler(async (req, res, next) => {
     const { followingId, onModel } = req.body; 
-  
     const { id: activeId, type: activeType, name: activeName, img: activeImg } = req.identity;
 
     if (followingId.toString() === activeId.toString()) {
         return next(new Error("You cannot follow yourself", { cause: 400 }));
     }
 
-    const TargetModel = onModel === 'User' ? userModel : companyModel;
+    const TargetModel = onModel === 'user' ? userModel : companyModel;
     const targetExists = await TargetModel.findById(followingId);
     if (!targetExists) return next(new Error(`${onModel} not found`, { cause: 404 }));
 
-    const existingFollow = await followModel.findOne({ 
-        followerId: activeId, 
-        followingId, 
-        onModel 
-    });
+    const existingFollow = await followModel.findOne({ followerId: activeId, followingId, onModel });
+
+    const cacheKeysToDel = [];
+
+    if (activeType === "user") {
+        cacheKeysToDel.push(`user:profile:${activeId}`);
+    } else {
+        cacheKeysToDel.push(`User:CompanyPage:${activeId}`, `User:Dashboard:${activeId}`); 
+    }
+
+   
+    if (onModel === "user" || onModel === "User") {
+        cacheKeysToDel.push(`user:profile:${followingId}`);
+    } else {
+        cacheKeysToDel.push(`User:CompanyPage:${followingId}`, `User:Dashboard:${followingId}`);
+    }
 
     if (existingFollow) {
         // --- Unfollow Logic ---
         await followModel.deleteOne({ _id: existingFollow._id });
-        await TargetModel.findByIdAndUpdate(followingId, { $inc: { followersCount: -1 } });
-      
-        const FollowerModel = activeType === 'user' ? userModel : companyModel;
-        await FollowerModel.findByIdAndUpdate(activeId, { $inc: { followingCount: -1 } });
 
-        res.status(200).json({ status: "success", message: "Unfollowed successfully" });
+        // decrease target followers 
+        await TargetModel.findByIdAndUpdate(followingId, { $inc: { followersCount: -1 } });
+        
+        // decrease people that i follow
+        const MeModel = activeType === 'user' ? userModel : companyModel;
+        await MeModel.findByIdAndUpdate(activeId, { $inc: { followingCount: -1 } });
+
+        if (cacheKeysToDel.length > 0) {
+            await redisClient.del(cacheKeysToDel);
+        }
+
+        return res.status(200).json({ status: "success", message: "Unfollowed successfully" });
     } else {
         // --- Follow Logic ---
-        await followModel.create({ 
-            followerId: activeId, 
-            followerType: activeType, 
-            followingId, 
-            onModel 
-        });
+        await followModel.create({ followerId: activeId, followerType: activeType, followingId, onModel });
 
+        // increase target followers 
         await TargetModel.findByIdAndUpdate(followingId, { $inc: { followersCount: 1 } });
-        const FollowerModel = activeType === 'user' ? userModel : companyModel;
-        await FollowerModel.findByIdAndUpdate(activeId, { $inc: { followingCount: 1 } });
 
-        const message = `${activeName} started following ${onModel === 'User' ? 'you' : targetExists.CompanyName || targetExists.name}`;
+        // increase people that i follow
+        const MeModel = activeType === 'user' ? userModel : companyModel;
+        await MeModel.findByIdAndUpdate(activeId, { $inc: { followingCount: 1 } });
 
+        if (cacheKeysToDel.length > 0) {
+            await redisClient.del(cacheKeysToDel);
+        }
+
+        const message = `${activeName} started following ${onModel === 'User' || onModel === 'user' ? 'you' : targetExists.CompanyName || targetExists.name}`;
         const sendNotify = async (recipientId) => {
             await MyPusher.trigger(recipientId.toString(), "UserNotification", {
                 Message: message,
@@ -68,51 +86,46 @@ export const ToggleFollow = asyncHandler(async (req, res, next) => {
             });
             await notificationModel.create({
                 recipient: recipientId,
-                sender: req.user._id, 
+                sender: activeId, 
                 type: "follow",
                 content: message
             });
         };
 
-        if (onModel === 'User') {
+        if (onModel === 'User' || onModel === 'user') {
             await sendNotify(followingId);
         } else if (onModel === 'Company') {
             const adminPromises = targetExists.Admins.map(admin => sendNotify(admin.user));
             await Promise.all(adminPromises);
         }
 
-        res.status(200).json({ status: "success", message: "Followed successfully" });
+        return res.status(200).json({ status: "success", message: "Followed successfully" });
     }
-
-    
-    const keys = await redisClient.keys(`NewsFeed:${activeId}:*`);
-    if (keys.length > 0) await redisClient.del(keys);
 });
 
 //RED1:==================================================View_Operation===============================================================
 //YELLOW2==> Record-View
-export const recordProfileView = asyncHandler(async(req,res,next)=>{
-   
+export const recordProfileView = asyncHandler(async(req, res, next) => {
     const { id: viewerId, type: viewerType } = req.identity; 
-    const { profileId } = req.body; 
+    const { profileId, onModel } = req.body; 
 
     if (viewerId.toString() === profileId.toString()) {
         return res.status(200).json({ message: "Self-view ignored" });
     }
-
-    const viewCacheKey = `view:${viewerId}:${profileId}`;
+     
+    const viewCacheKey = `view:limit:${viewerId}:${profileId}`; 
     const isViewedRecently = await redisClient.get(viewCacheKey);
 
     if (!isViewedRecently) {
-        await viewModel.create({ 
-            viewerId, 
-            viewerType, 
-            profileId 
-        });
-
+        await viewModel.create({ viewerId, viewerType, profileId });
         await redisClient.set(viewCacheKey, "true", { EX: 3600 });
         
-      
+        if (onModel === "user") {
+            await redisClient.del(`user:profile:${profileId}`);
+        } else {
+          
+            await redisClient.del([`User:CompanyPage:${profileId}`, `User:Dashboard:${profileId}`]);
+        }
     } 
 
     res.status(200).json({ status: "success", message: "View processed" });

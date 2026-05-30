@@ -12,16 +12,12 @@ import redisClient from "../../../utils/redisClient/redisClient.js";
 
 //RED3 Company_Page_CRUD
 export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
-  const { CompanyName, ContactEmail, Industry, OrganizationSize, OrganizationType, Website, Location, Description,} = req.body;
+  const { CompanyName, ContactEmail, Industry, OrganizationSize, OrganizationType, Website, Location, Description } = req.body;
+  const userId = req.user._id;
   
-  
-  
-  
-  const isExist = await companyModel.findOne({ $or: [{ CompanyName }, { ContactEmail }],});
-  if (isExist) {return next(new Error("Company Name or Contact Email already exists", 409)); }
 
-    
-
+  const isExist = await companyModel.findOne({ $or: [{ CompanyName }, { ContactEmail }] });
+  if (isExist) return next(new Error("Company Name or Contact Email already exists", { cause: 409 }));
 
 
   let logoData = {};
@@ -29,11 +25,10 @@ export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
     const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path, {
       folder: `YCG/Companies/CompanyLogo/${CompanyName}`,
     });
-
     logoData = { secure_url, public_id };
   }
  
-  
+
   const company = await companyModel.create({
     CompanyName,
     ContactEmail,
@@ -44,162 +39,219 @@ export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
     Description,
     Location,
     Logo: logoData,
-    HrManager: req.user._id,
-    Employees: [req.user._id],
-    Admins: { user: req.user._id, role: "superAdmin" },
+    HrManager: userId,
+    Employees: [userId],
+    Admins: [{ user: userId, role: "superAdmin" }], 
   });
-
-  return res.status(201).json({status: "success",message: "Company registered successfully",company,});
-});
-export const GetSpecificCompanyDashBoard = asyncHandler(async (req, res, next) => {//Need Editing
-
-
-  const userId = req.user._id;
-  const resultObject={
-    CompanyInfo:{
-      
-    },
-    companyPostsCount:0,
-    companyPosts:{}
-  }
-
-
-
-  const CashKey = `CompanyDashboard:${userId}`;
-  const cachedData = await redisClient.get(CashKey);
-  if (cachedData) {
-    return res.status(200).json({status: "success",source: "cache",data: JSON.parse(cachedData),});
-  }
  
 
-
-  
-  const companyExists = await companyModel.findOne({"Admins.user":userId});
-  if (!companyExists) return next(new Error("Company not found", 404));  
-     
-  const currentAdmin = companyExists.Admins.find(a => a.user.toString() === userId.toString());
-  if (!currentAdmin || !["admin", "superAdmin"].includes(currentAdmin.role)) {
-    return next(new Error("Unauthorized: Only admins can post", 403));
+  await redisClient.del([`User:CompanyPage:${company._id}`,`User:Dashboard:${company._id}` ]);;
+  const companiesListKeys = await redisClient.keys('User:CompanyLists:page*');
+  if (companiesListKeys.length > 0) {
+    await redisClient.del(companiesListKeys);
   }
 
+ 
 
-
-
-  const company = await companyModel.findOne({ "Admins.user": userId })
-  .populate("Followers")
-  .populate("followersCount")
-  .populate("Following")
-  .populate("followingCount")
-  .populate("viewsCount");
-
-  resultObject.CompanyInfo=company;
-
-
-  const companyPosts = await ActivityModel.find({CreatedBy:company._id})
-
-  
-  resultObject.companyPosts=companyPosts;
-  resultObject.companyPostsCount=companyPosts.length
-
-
-  if (!company) {
-    return next(new Error("Company not found or you don't have access"), 404);
-  }
-
-  
-
-  await redisClient.set(CashKey, JSON.stringify(resultObject), { EX: 300 });
-
-  res.status(200).json({ status: "Success", source: "DB", data: resultObject });
+ 
+  await redisClient.del(`user:profile:${userId}`);
+   
+  return res.status(201).json({ status: "success", message: "Company registered successfully", company 
+  });
 });
 export const updateCompany = asyncHandler(async (req, res, next) => {
-
-
   const { companyId } = req.params;
-  const { CompanyName, Industry, OrganizationSize, OrganizationType, Website, Location, Description,} = req.body;
+  const { CompanyName, Industry, OrganizationSize, OrganizationType, Website, Location, Description } = req.body;
   const userId = req.user._id;
 
   const company = await companyModel.findById(companyId);
-  if (!company) return next(new Error("Company not Exists", 404));
-
-
-
-
+  if (!company) return next(new Error("Company not Exists", { cause: 404 }));
      
-    const currentAdmin = company.Admins.find(a => a.user.toString() === userId.toString());
-    if (!currentAdmin || !["admin", "superAdmin"].includes(currentAdmin.role)) {
-      return next(new Error("Unauthorized: Only admins can post", 403));
-    }
+  const currentAdmin = company.Admins.find(a => a.user.toString() === userId.toString());
+  if (!currentAdmin || !["admin", "superAdmin"].includes(currentAdmin.role)) {
+      return next(new Error("Unauthorized: Only admins can update", { cause: 403 }));
+  }
 
   if (CompanyName && CompanyName !== company.CompanyName) {
     const nameExist = await companyModel.findOne({ CompanyName });
-    if (nameExist) return next(new Error("Company name already exists", 409));
+    if (nameExist) return next(new Error("Company name already exists", { cause: 409 }));
   }
 
   if (req.file) {
     if (company.Logo && company.Logo.public_id) {
       await cloudinary.uploader.destroy(company.Logo.public_id);
     }
-
-    const { secure_url, public_id } = await cloudinary.uploader.upload(
-      req.file.path,
-      {
-        folder: `YCG/Companies/CompanyLogo/${CompanyName || company.CompanyName}`,
-      },
-    );
-
+    const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path, {
+      folder: `YCG/Companies/CompanyLogo/${CompanyName || company.CompanyName}`,
+    });
     req.body.Logo = { secure_url, public_id };
   }
 
-  const updatedCompany = await companyModel.findByIdAndUpdate(
-    companyId,
-    req.body,
-    { new: true, runValidators: true },
-  );
+  const updatedCompany = await companyModel.findByIdAndUpdate(companyId, req.body, { new: true, runValidators: true });
 
-  if (updatedCompany) {
-    const CashKey = `Company:${req.user._id}`;
-    await redisClient.del(CashKey);
+  
+
+  await redisClient.del([`User:CompanyPage:${company._id}`,`User:Dashboard:${company._id}` ]);;
+  const companiesListKeys = await redisClient.keys('User:CompanyLists:page*');
+  if (companiesListKeys.length > 0) {
+    await redisClient.del(companiesListKeys);
   }
 
-  res.status(200).json({
-    status: "success",
-    message: "information updated successfully",
-    company: updatedCompany,
-  });
+ 
+  res.status(200).json({ status: "success", message: "information updated successfully", company: updatedCompany });
 });
 export const deleteCompany = asyncHandler(async (req, res, next) => {
+
   const { companyId } = req.params;
   const userId = req.user._id;
 
-
   const company = await companyModel.findById(companyId);
-  if (!company) return next(new Error("Company not found", 404));
+  if (!company) return next(new Error("Company not found", { cause: 404 }));
 
-  
-  const isEmployeeValid = company.HRManagers?.some((hr) => hr.user.toString() === userId.toString() && hr.status === "active");
-  if (!isEmployeeValid) {return next(new Error("Security Alert: User not found in HR records or inactive", 401));}
-
- 
   const currentAdmin = company.Admins.find((admin) => admin.user.toString() === userId.toString());
   if (!currentAdmin || currentAdmin.role !== "superAdmin") {
-    return next(new Error("Unauthorized: Only an active Super Admin can delete the page", 403));
+    return next(new Error("Unauthorized: Only an active Super Admin can delete the page", { cause: 403 }));
   }
 
   const mediaToDelete = [company.Logo?.public_id, company.Banner?.public_id].filter(Boolean);
-  if (mediaToDelete.length > 0) { await Promise.all(mediaToDelete.map(id => cloudinary.uploader.destroy(id)));}
+  if (mediaToDelete.length > 0) { 
+    await Promise.all(mediaToDelete.map(id => cloudinary.uploader.destroy(id)));
+  }
 
-  
+
   await ActivityModel.deleteMany({ CreatedBy: companyId });
-
- 
   await companyModel.findByIdAndDelete(companyId);
 
 
-  const keys = await redisClient.keys(`Feed:${companyId}*`);
-  if (keys.length > 0) await redisClient.del(keys);
 
-  res.status(200).json({status: "success",message: "Company deleted securely after multi-factor authorization."});
+  await redisClient.del([`User:CompanyPage:${company._id}`,`User:Dashboard:${company._id}` ]);;
+  const companiesListKeys = await redisClient.keys('User:CompanyLists:page*');
+  if (companiesListKeys.length > 0) {
+    await redisClient.del(companiesListKeys);
+  }
+
+
+  res.status(200).json({ status: "success", message: "Company deleted securely." });
+
+});
+
+//GREEN3 CompanyPage Display apis
+export const getCompanyPublicPage = asyncHandler(async (req, res, next) => {
+  const { companyId } = req.params;
+
+  
+  const cacheKey = `User:CompanyPage:${companyId}`;
+  
+  
+  const cachedCompanyData = await redisClient.get(cacheKey);
+  
+  if (cachedCompanyData) {
+    return res.status(200).json({status: "success",source: "Cache",data: JSON.parse(cachedCompanyData)});
+  }
+
+  
+  const company = await companyModel.findById(companyId)
+    .select("-ContactEmail -Admins -HRManagers") 
+    .populate("followersCount") 
+    .populate("viewsCount")
+    .populate("Employees", "firstName lastName userProfileImg userSubTitle"); 
+
+  if (!company) {
+    return next(new Error("Company not found", { cause: 404 }));
+  }
+
+  
+  const companyPosts = await ActivityModel.find({ CreatedBy: companyId }).sort({ createdAt: -1 }); 
+
+
+  const resultObject = { companyInfo: company, posts: companyPosts, postsCount: companyPosts.length};
+
+  await redisClient.set(cacheKey, JSON.stringify(resultObject), { EX: 3600 });
+
+  res.status(200).json({ status: "success", source: "DB", data: resultObject });
+});
+
+export const getAllCompanies = asyncHandler(async (req, res, next) => {
+  
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+ 
+  const cacheKey = `User:CompanyLists:page${page}:limit:${limit}`;
+
+
+  const cachedList = await redisClient.get(cacheKey);
+  if (cachedList) {
+
+    return res.status(200).json({ status: "success",source: "Cache",...JSON.parse(cachedList)});
+
+  }
+
+ 
+  const totalCompanies = await companyModel.countDocuments();
+
+  const companies = await companyModel.find().skip(skip).limit(limit).sort({ createdAt: -1 }); 
+
+  const resultData = {
+    
+    companies,
+    pagination: {
+      currentPage: page,
+      limit,
+      totalCompanies,
+      totalPages: Math.ceil(totalCompanies / limit)
+    }
+  };
+
+ 
+  await redisClient.set(cacheKey, JSON.stringify(resultData), { EX: 600 });
+
+  res.status(200).json({ status: "success", source: "DB", ...resultData });
+});
+
+// need Edit
+export const GetSpecificCompanyDashBoard = asyncHandler(async (req, res, next) => {
+  const userId = req.user._id;
+
+  
+  const company = await companyModel.findOne({ "Admins.user": userId })
+    .populate("Followers")
+    .populate("followersCount")
+    .populate("Following")
+    .populate("followingCount")
+    .populate("viewsCount");
+
+  if (!company) {
+    return next(new Error("Company not found or you don't have access", { cause: 404 }));
+  }
+
+
+  const currentAdmin = company.Admins.find(a => a.user.toString() === userId.toString());
+  if (!currentAdmin || !["admin", "superAdmin"].includes(currentAdmin.role)) {
+    return next(new Error("Unauthorized: Access denied", { cause: 403 }));
+  }
+
+
+  const CashKey = `User:Dashboard:${company._id}`;
+  const cachedData = await redisClient.get(CashKey);
+  if (cachedData) {
+    return res.status(200).json({ status: "success", source: "cache", data: JSON.parse(cachedData) });
+  }
+
+ 
+  const companyPosts = await ActivityModel.find({ CreatedBy: company._id });
+
+  const resultObject = {
+    CompanyInfo: company,
+    companyPosts: companyPosts,
+    companyPostsCount: companyPosts.length
+  };
+
+ 
+  await redisClient.set(CashKey, JSON.stringify(resultObject), { EX: 300 });
+
+  res.status(200).json({ status: "Success", source: "DB", data: resultObject });
 });
 //////////////
 

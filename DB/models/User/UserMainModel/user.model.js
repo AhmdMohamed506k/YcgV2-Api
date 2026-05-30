@@ -6,6 +6,7 @@ import { LanguagesSectionSchema } from "../UserSections/Languages.model.js";
 import { CourseSectionSchema } from "../UserSections/CourseSection.model.js";
 import { ProjectsSectionSchema } from "../UserSections/ProjectsSection.model.js";
 
+
 const userSchema = new Schema(
   {
     firstName: {
@@ -85,9 +86,10 @@ const userSchema = new Schema(
       secure_url: { type: String, default: null },
       public_id: { type: String, default: null },
     },
-    ForgetPassCode: { type: String, default: null },
-    Emailverificationcode: String,
-    EmailverificationisVerified: {
+    
+    isForgetCodeVerified: { type: Boolean, default: false },
+    EmailVerificationCode: String,
+    EmailVerificationIsVerified: {
       type: Boolean,
       default: false,
     },
