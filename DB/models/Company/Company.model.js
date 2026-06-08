@@ -48,6 +48,14 @@ const companySchema = new Schema(
       secure_url: String,
       public_id: String,
     },
+    Banner: {
+      secure_url: {type:String,default:null},
+      public_id: {type:String,default:null},
+    },
+    IsPremiumCompany:{
+      type:String,
+      default:null
+    },
     Description: {
       type: String,
  

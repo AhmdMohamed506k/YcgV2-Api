@@ -16,23 +16,23 @@ const ActivityRouter = Router();
 
 
 //YELLOW2 ====> Create (1)
-ActivityRouter.post("/createActivity", auth,MulterHost([...validExtensions.image, ...validExtensions.media]).fields(FieldsArray), AC.CreateActivity);
+ActivityRouter.post("/createActivity", auth, activeIdentity,MulterHost([...validExtensions.image, ...validExtensions.media]).fields(FieldsArray), AC.CreateActivity);
 
 
 
 //GREEN3 ====> Display (3)
 ActivityRouter.get("/Home", auth,AC.getHybridFeed);
-ActivityRouter.get("/GetAllActivities/:OwnerId",auth,AC.GetActivities);
-ActivityRouter.get("/Profiles/ActivityDetails/:activityId", auth,AC.GetSpecificActivityInfo);
+ActivityRouter.get("/GetAllActivities/:OwnerId",auth,AC.GetAllUserActivities);
+ActivityRouter.get("/Profiles/ActivityDetails/:activityId", auth,activeIdentity,AC.GetSpecificActivityInfo);
 
 
 
 //CYAN2 ===>  Update (1)
-ActivityRouter.put("/Profiles/ChangeActivityDetails/:ActivityId", auth,AC.UpdateActivity);
+ActivityRouter.put("/Profiles/ChangeActivityDetails/:activityId", auth,activeIdentity,MulterHost([...validExtensions.image, ...validExtensions.media]).fields(FieldsArray), AC.UpdateActivity);
 
 
 //RED3 ===>  Delete (1)
-ActivityRouter.delete("/Profiles/DeleteActivity/:activityId", auth,AC.DeleteActivity);
+ActivityRouter.delete("/Profiles/DeleteActivity/:activityId",auth,activeIdentity, AC.DeleteActivity);
 
 
 

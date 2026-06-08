@@ -84,6 +84,12 @@ ActivitySchema.virtual('views', {
     localField: '_id',        
     foreignField: 'activityId' 
 });
+ActivitySchema.virtual('viewsCount', {
+    ref: 'ActivityView',      
+    localField: '_id',        
+    foreignField: 'activityId',
+    count: true,
+});
 
 
 ///////////////////Comments///////////////////////////////////

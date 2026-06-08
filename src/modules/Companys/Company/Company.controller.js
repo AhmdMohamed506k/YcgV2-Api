@@ -16,14 +16,20 @@ export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
   const userId = req.user._id;
   
 
+   
+  const UserOwnCompany= await companyModel.findOne({HrManager:userId});
+  if(UserOwnCompany){return next(new Error("You can not own more then one company page"),{cause:409})};
+  
+
   const isExist = await companyModel.findOne({ $or: [{ CompanyName }, { ContactEmail }] });
   if (isExist) return next(new Error("Company Name or Contact Email already exists", { cause: 409 }));
-
+   
+  
 
   let logoData = {};
   if (req.file) {
     const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path, {
-      folder: `YCG/Companies/CompanyLogo/${CompanyName}`,
+      folder: `YCG/Companies/${CompanyName}/CompanyLogo`,
     });
     logoData = { secure_url, public_id };
   }
@@ -45,7 +51,10 @@ export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
   });
  
 
-  await redisClient.del([`User:CompanyPage:${company._id}`,`User:Dashboard:${company._id}` ]);;
+  await redisClient.del([`User:CompanyPage:${company._id}`,`User:Dashboard:${company._id}`]);
+
+
+
   const companiesListKeys = await redisClient.keys('User:CompanyLists:page*');
   if (companiesListKeys.length > 0) {
     await redisClient.del(companiesListKeys);
@@ -54,15 +63,28 @@ export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
  
 
  
-  await redisClient.del(`user:profile:${userId}`);
    
-  return res.status(201).json({ status: "success", message: "Company registered successfully", company 
-  });
+  return res.status(201).json({ status: "success", message: "Company registered successfully", company });
 });
 export const updateCompany = asyncHandler(async (req, res, next) => {
+  
+  const companyObject={}
+
+  
+  if(req.body.CompanyName) companyObject.CompanyName = req.body.CompanyName ;
+  if(req.body.Industry) companyObject.Industry = req.body.Industry ;
+  if(req.body.OrganizationSize) companyObject.OrganizationSize = req.body.OrganizationSize ;
+  if(req.body.OrganizationType) companyObject.OrganizationType = req.body.OrganizationType ;
+  if(req.body.Website) companyObject.Website = req.body.Website ;
+  if(req.body.Location) companyObject.Location = req.body.Location ;
+  if(req.body.Description) companyObject.Description = req.body.Description ;
+  
+  
+  
+
   const { companyId } = req.params;
-  const { CompanyName, Industry, OrganizationSize, OrganizationType, Website, Location, Description } = req.body;
   const userId = req.user._id;
+
 
   const company = await companyModel.findById(companyId);
   if (!company) return next(new Error("Company not Exists", { cause: 404 }));
@@ -72,26 +94,48 @@ export const updateCompany = asyncHandler(async (req, res, next) => {
       return next(new Error("Unauthorized: Only admins can update", { cause: 403 }));
   }
 
-  if (CompanyName && CompanyName !== company.CompanyName) {
-    const nameExist = await companyModel.findOne({ CompanyName });
-    if (nameExist) return next(new Error("Company name already exists", { cause: 409 }));
+  if (companyObject.CompanyName && companyObject.CompanyName == company.CompanyName) {
+    return next(new Error("Company name already exists", { cause: 409 }));
   }
 
-  if (req.file) {
-    if (company.Logo && company.Logo.public_id) {
+ 
+  
+  
+  
+  
+  if (req.files) {
+    if(req.files.Logo){
+         if (company.Logo && company.Logo.public_id) {
       await cloudinary.uploader.destroy(company.Logo.public_id);
     }
-    const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path, {
-      folder: `YCG/Companies/CompanyLogo/${CompanyName || company.CompanyName}`,
-    });
-    req.body.Logo = { secure_url, public_id };
-  }
 
-  const updatedCompany = await companyModel.findByIdAndUpdate(companyId, req.body, { new: true, runValidators: true });
+    const { secure_url, public_id } = await cloudinary.uploader.upload(req.files.Logo[0].path, {
+      folder: `YCG/Companies/${companyObject.CompanyName || company.CompanyName}/CompanyLogo`,
+    });
+    companyObject.Logo = { secure_url, public_id };
+    }
+    if (req.files.Banner) {
+      if (company.Banner && company.Banner.public_id) {    
+      await cloudinary.uploader.destroy(company.Banner.public_id);
+    }
+
+    const { secure_url, public_id } = await cloudinary.uploader.upload(req.files.Banner[0].path, {
+    folder: `YCG/Companies/${companyObject.CompanyName || company.CompanyName}/CompanyBanner`,
+
+    });
+    companyObject.Banner = { secure_url, public_id };
+    }
+  }
+   
+
+
+  const updatedCompany = await companyModel.findByIdAndUpdate(companyId, companyObject, { new: true, runValidators: true });
 
   
 
   await redisClient.del([`User:CompanyPage:${company._id}`,`User:Dashboard:${company._id}` ]);;
+
+
   const companiesListKeys = await redisClient.keys('User:CompanyLists:page*');
   if (companiesListKeys.length > 0) {
     await redisClient.del(companiesListKeys);
@@ -100,7 +144,7 @@ export const updateCompany = asyncHandler(async (req, res, next) => {
  
   res.status(200).json({ status: "success", message: "information updated successfully", company: updatedCompany });
 });
-export const deleteCompany = asyncHandler(async (req, res, next) => {
+export const DeleteCompany = asyncHandler(async (req, res, next) => {
 
   const { companyId } = req.params;
   const userId = req.user._id;
@@ -113,9 +157,16 @@ export const deleteCompany = asyncHandler(async (req, res, next) => {
     return next(new Error("Unauthorized: Only an active Super Admin can delete the page", { cause: 403 }));
   }
 
+
+  
+  
+
+
   const mediaToDelete = [company.Logo?.public_id, company.Banner?.public_id].filter(Boolean);
   if (mediaToDelete.length > 0) { 
     await Promise.all(mediaToDelete.map(id => cloudinary.uploader.destroy(id)));
+    const FolderPath= company.Logo.public_id.substring(0,company.Logo.public_id.lastIndexOf("/CompanyLogo"));
+    await cloudinary.api.delete_folder(FolderPath);
   }
 
 
@@ -131,12 +182,13 @@ export const deleteCompany = asyncHandler(async (req, res, next) => {
   }
 
 
-  res.status(200).json({ status: "success", message: "Company deleted securely." });
+  res.status(200).json({ status: "success", message: "Company Deleted Successfully." });
 
 });
 
 //GREEN3 CompanyPage Display apis
 export const getCompanyPublicPage = asyncHandler(async (req, res, next) => {
+
   const { companyId } = req.params;
 
   
@@ -170,7 +222,6 @@ export const getCompanyPublicPage = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({ status: "success", source: "DB", data: resultObject });
 });
-
 export const getAllCompanies = asyncHandler(async (req, res, next) => {
   
   const page = parseInt(req.query.page) || 1;
@@ -221,6 +272,7 @@ export const GetSpecificCompanyDashBoard = asyncHandler(async (req, res, next) =
     .populate("Following")
     .populate("followingCount")
     .populate("viewsCount");
+
 
   if (!company) {
     return next(new Error("Company not found or you don't have access", { cause: 404 }));

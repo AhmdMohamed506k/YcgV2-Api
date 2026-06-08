@@ -3,8 +3,6 @@ import { model, Schema } from "mongoose";
 
 
 
-
-
 const activityViewSchema = new Schema({
     activityId: { 
         type: Schema.Types.ObjectId, 
