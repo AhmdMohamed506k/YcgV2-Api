@@ -475,7 +475,6 @@ export const DeleteUserCv = asyncHandler(async (req, res, next) => {
         data: updatedUser.userCVs
     });
 });
-
 //GREEN3===> User_Banner
 export const ToggleUpdateUserBanner = asyncHandler(async (req, res, next) => {
     const userId = req.user._id;
@@ -532,7 +531,6 @@ export const ToggleUpdateUserBanner = asyncHandler(async (req, res, next) => {
         });
     }
 });
-
 //GREEN3===> User_Profile_Image
 export const ToggleUpdateUserProfileImage = asyncHandler(async (req, res, next) => {
 
@@ -592,6 +590,16 @@ export const ToggleUpdateUserProfileImage = asyncHandler(async (req, res, next) 
     }
 });
 
+//GOLD =============Apply-For-Job================== 
+
+
+
+
+
+
+
+
+
 
 
 
@@ -620,6 +628,24 @@ export const getAllUsers = asyncHandler(async (req, res, next) => {
     users
   });
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

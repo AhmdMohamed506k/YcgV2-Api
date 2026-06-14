@@ -1,7 +1,7 @@
 import { ActivityModel } from "../../../../DB/models/Activities/Activities.model.js";
 import companyModel from "../../../../DB/models/Company/Company.model.js";
 import { userModel } from "../../../../DB/models/User/UserMainModel/user.model.js";
-import { JobApplicationModel } from "../../../../DB/models/ـJobApplication/JobApplication.model.js";
+import { jobModel } from "../../../../DB/models/Jobs/JobPost/Job.model.js";
 import { asyncHandler } from "../../../middleware/asyncHandler/asyncHandler.js";
 import cloudinary from "../../../utils/Cloudinary/Cloudinary.js";
 import redisClient from "../../../utils/redisClient/redisClient.js";
@@ -10,8 +10,7 @@ import redisClient from "../../../utils/redisClient/redisClient.js";
 
 
 
-
-//RED3-> Company-Page-CRUD
+// !==================================================Company-Page-CRUD===============================================================
 export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
   const { CompanyName, ContactEmail, Industry, OrganizationSize, OrganizationType, Website, Location, Description } = req.body;
   const userId = req.user._id;
@@ -183,9 +182,6 @@ export const DeleteCompany = asyncHandler(async (req, res, next) => {
   res.status(200).json({ status: "success", message: "Company Deleted Successfully." });
 
 });
-
-
-//GREEN3-> CompanyPage-Display
 export const getCompanyPublicPage = asyncHandler(async (req, res, next) => {
 
   const { companyId } = req.params;
@@ -307,47 +303,6 @@ export const GetSpecificCompanyDashBoard = asyncHandler(async (req, res, next) =
 
 
 
-//ORANGE1 Page-Jobs-Posts
-export const CreateJobPost = asyncHandler(async (req, res, next) => {
-  
-    const { title, description, companyId, requirements, locationType, jobType, experienceLevel, salary, screeningQuestions, rejectionSettings,MustHaveQualifications,PreferredQualifications } = req.body;
-    
-    const userId = req.user._id;
-
-    const company = await companyModel.findById(companyId);
-    if (!company) return next(new Error("Company not found", { cause: 404 }));
-
-    
-    const isAdmin = company.Admins.some(a => a.user.toString() === userId.toString());
-    if (!isAdmin) return next(new Error("Unauthorized", { cause: 403 }));
-    
-     
-    let ValidRequirements = [];
-    if (requirements) {
-        if (Array.isArray(requirements)) {
-            ValidRequirements = requirements; 
-        } else if (typeof requirements === "string") {
-            ValidRequirements = requirements.split(/[,\s]+/).filter(Boolean);
-        } else {
-            ValidRequirements = [requirements.toString()];
-        }
-    }
-    
-
-    const newJob = await JobApplicationModel.create({
-       companyId, "jobSnapshot.title":title, "jobSnapshot.description":description,
-       "jobSnapshot.Requirements":ValidRequirements,"jobSnapshot.locationType": locationType, 
-       "jobSnapshot.jobType":jobType,"jobSnapshot.experienceLevel": experienceLevel,
-       "jobSnapshot.salary":salary, createdBy: userId,
-        screeningQuestions: screeningQuestions || [],
-        rejectionSettings: rejectionSettings || { enabled: false, autoReject: false },
-        addedBy:userId,MustHaveQualifications,PreferredQualifications
-    });
-
-    await redisClient.del([`User:CompanyPage:${companyId}`, `User:Dashboard:${companyId}`]);
-
-    res.status(201).json({ status: "success", data: newJob });
-});
 
 
 
@@ -358,8 +313,8 @@ export const CreateJobPost = asyncHandler(async (req, res, next) => {
 
 
 
+// !==================================================Page_Services===============================================================
 
-// Page_Services 
 export const addAdminToCompany = asyncHandler(async (req, res, next) => {
   const { companyId } = req.params;
   const { newUserEmail, role } = req.body;

@@ -24,10 +24,8 @@ CompanyRouter.put("/UpdateInfo/:companyId",auth,MulterHost(validExtensions.image
 
 CompanyRouter.delete("/DeleteCompany/:companyId", auth , CP.DeleteCompany);//* DeleteCompany
 
-// !=====================================================Post-Jobs===============================================================
 
 
-CompanyRouter.post("/JobPost/Create",auth,CP.CreateJobPost)//done
 
 
 
