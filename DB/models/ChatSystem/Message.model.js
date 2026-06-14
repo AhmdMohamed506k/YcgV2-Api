@@ -15,7 +15,7 @@ const messageSchema = new Schema(
     senderType: {
       type: String,
       required: true,
-      enum: ["User", "Company"],
+      enum: ["user", "Company"],
     },
     receiverId: {
       type: Types.ObjectId,
@@ -25,7 +25,7 @@ const messageSchema = new Schema(
     receiverType: {
       type: String,
       required: true,
-      enum: ["User", "Company"],
+      enum: ["user", "Company"],
     },
     text: { 
       type: String,

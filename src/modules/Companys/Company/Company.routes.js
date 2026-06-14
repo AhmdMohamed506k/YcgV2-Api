@@ -14,22 +14,35 @@ const CompanyRouter = Router()
 
 // !==================================================CompanyCRUD===============================================================
 
-CompanyRouter.post("/CreateCompanyPage",auth,MulterHost(validExtensions.image).single("Logo"),CP.CreateCompanyPage);//* CreateCompanyPage
+CompanyRouter.post("/CreatePage",auth,MulterHost(validExtensions.image).single("Logo"),CP.CreateCompanyPage);//* CreateCompanyPage
 
-CompanyRouter.get("/GetCompanyDashboardData",auth,CP.GetSpecificCompanyDashBoard);//* GetCompanyDashboard
+CompanyRouter.get("/Dashboard",auth,CP.GetSpecificCompanyDashBoard);//* GetCompanyDashboard
 
-CompanyRouter.get("/getCompanyPublicPage/:companyId",auth,CP.getCompanyPublicPage);//* GetCompanyPublicPage
+CompanyRouter.get("/PublicPage/:companyId",auth,CP.getCompanyPublicPage);//* GetCompanyPublicPage
 
-CompanyRouter.put("/UpdateCompanyInfo/:companyId",auth,MulterHost(validExtensions.image).fields(FieldsArray),CP.updateCompany)//* UpdateCompanyInfo
+CompanyRouter.put("/UpdateInfo/:companyId",auth,MulterHost(validExtensions.image).fields(FieldsArray),CP.updateCompany)//* UpdateCompanyInfo
 
 CompanyRouter.delete("/DeleteCompany/:companyId", auth , CP.DeleteCompany);//* DeleteCompany
+
+// !=====================================================Post-Jobs===============================================================
+
+
+CompanyRouter.post("/JobPost/Create",auth,CP.CreateJobPost)//done
+
+
 
 
 
 
 // !==================================================Page_Services===============================================================
 
-CompanyRouter.post("/AddNewAdmin/:companyId",auth,CP.addAdminToCompany)//done
+CompanyRouter.post("/NewAdminToCompany/:companyId",auth,CP.addAdminToCompany)//done
+CompanyRouter.get("/CompanyAdmins/:companyId",auth,CP.GetCurrentCompanyAdmins)//done
+
+
+
+CompanyRouter.post("/NewEmployeesToCompany/:companyId",auth,CP.addEmployeesToCompany) //done
+CompanyRouter.get("/CompanyEmployees/:companyId",auth,CP.GetCurrentCompanyEmployees) //done
 
 
 

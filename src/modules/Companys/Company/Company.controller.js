@@ -1,6 +1,7 @@
 import { ActivityModel } from "../../../../DB/models/Activities/Activities.model.js";
 import companyModel from "../../../../DB/models/Company/Company.model.js";
 import { userModel } from "../../../../DB/models/User/UserMainModel/user.model.js";
+import { JobApplicationModel } from "../../../../DB/models/ـJobApplication/JobApplication.model.js";
 import { asyncHandler } from "../../../middleware/asyncHandler/asyncHandler.js";
 import cloudinary from "../../../utils/Cloudinary/Cloudinary.js";
 import redisClient from "../../../utils/redisClient/redisClient.js";
@@ -10,7 +11,7 @@ import redisClient from "../../../utils/redisClient/redisClient.js";
 
 
 
-//RED3 Company_Page_CRUD
+//RED3-> Company-Page-CRUD
 export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
   const { CompanyName, ContactEmail, Industry, OrganizationSize, OrganizationType, Website, Location, Description } = req.body;
   const userId = req.user._id;
@@ -51,10 +52,7 @@ export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
   });
  
 
-  await redisClient.del([`User:CompanyPage:${company._id}`,`User:Dashboard:${company._id}`]);
-
-
-
+  await redisClient.del([`User:CompanyPage:${company._id}`,`User:Dashboard:${company._id}`,`CompanyEmployees:${companyId}`]);
   const companiesListKeys = await redisClient.keys('User:CompanyLists:page*');
   if (companiesListKeys.length > 0) {
     await redisClient.del(companiesListKeys);
@@ -133,7 +131,7 @@ export const updateCompany = asyncHandler(async (req, res, next) => {
 
   
 
-  await redisClient.del([`User:CompanyPage:${company._id}`,`User:Dashboard:${company._id}` ]);;
+  await redisClient.del([`User:CompanyPage:${company._id}`,`User:Dashboard:${company._id}`,`CompanyEmployees:${companyId}` ]);;
 
 
   const companiesListKeys = await redisClient.keys('User:CompanyLists:page*');
@@ -175,7 +173,7 @@ export const DeleteCompany = asyncHandler(async (req, res, next) => {
 
 
 
-  await redisClient.del([`User:CompanyPage:${company._id}`,`User:Dashboard:${company._id}` ]);;
+  await redisClient.del([`User:CompanyPage:${company._id}`,`User:Dashboard:${company._id}`,`CompanyEmployees:${companyId}` ]);;
   const companiesListKeys = await redisClient.keys('User:CompanyLists:page*');
   if (companiesListKeys.length > 0) {
     await redisClient.del(companiesListKeys);
@@ -186,7 +184,8 @@ export const DeleteCompany = asyncHandler(async (req, res, next) => {
 
 });
 
-//GREEN3 CompanyPage Display apis
+
+//GREEN3-> CompanyPage-Display
 export const getCompanyPublicPage = asyncHandler(async (req, res, next) => {
 
   const { companyId } = req.params;
@@ -305,11 +304,50 @@ export const GetSpecificCompanyDashBoard = asyncHandler(async (req, res, next) =
 
   res.status(200).json({ status: "Success", source: "DB", data: resultObject });
 });
-//////////////
+
+
 
 //ORANGE1 Page-Jobs-Posts
+export const CreateJobPost = asyncHandler(async (req, res, next) => {
+  
+    const { title, description, companyId, requirements, locationType, jobType, experienceLevel, salary, screeningQuestions, rejectionSettings,MustHaveQualifications,PreferredQualifications } = req.body;
+    
+    const userId = req.user._id;
 
+    const company = await companyModel.findById(companyId);
+    if (!company) return next(new Error("Company not found", { cause: 404 }));
 
+    
+    const isAdmin = company.Admins.some(a => a.user.toString() === userId.toString());
+    if (!isAdmin) return next(new Error("Unauthorized", { cause: 403 }));
+    
+     
+    let ValidRequirements = [];
+    if (requirements) {
+        if (Array.isArray(requirements)) {
+            ValidRequirements = requirements; 
+        } else if (typeof requirements === "string") {
+            ValidRequirements = requirements.split(/[,\s]+/).filter(Boolean);
+        } else {
+            ValidRequirements = [requirements.toString()];
+        }
+    }
+    
+
+    const newJob = await JobApplicationModel.create({
+       companyId, "jobSnapshot.title":title, "jobSnapshot.description":description,
+       "jobSnapshot.Requirements":ValidRequirements,"jobSnapshot.locationType": locationType, 
+       "jobSnapshot.jobType":jobType,"jobSnapshot.experienceLevel": experienceLevel,
+       "jobSnapshot.salary":salary, createdBy: userId,
+        screeningQuestions: screeningQuestions || [],
+        rejectionSettings: rejectionSettings || { enabled: false, autoReject: false },
+        addedBy:userId,MustHaveQualifications,PreferredQualifications
+    });
+
+    await redisClient.del([`User:CompanyPage:${companyId}`, `User:Dashboard:${companyId}`]);
+
+    res.status(201).json({ status: "success", data: newJob });
+});
 
 
 
@@ -326,39 +364,86 @@ export const addAdminToCompany = asyncHandler(async (req, res, next) => {
   const { companyId } = req.params;
   const { newUserEmail, role } = req.body;
   const currentUserId = req.user._id;
-  const CashKey = `CompanyDashboard:${userId}`;
 
   const company = await companyModel.findById(companyId);
-  if (!company) return next(new Error("Company not Exists", 404));
+  if (!company) return next(new Error("Company not Exists", { cause: 404 }));
 
-  const currentAdmin = company.Admins.find(
-    (admin) => admin.user.toString() === currentUserId.toString(),
-  );
-
+  const currentAdmin = company.Admins.find(admin => admin.user.toString() === currentUserId.toString());
   if (!currentAdmin || currentAdmin.role !== "superAdmin") {
-    return next(
-      new Error("Sorry, you must be a Super Admin to add new managers", 403),
-    );
+    return next(new Error("Sorry, you must be a Super Admin", { cause: 403 }));
   }
 
   const userToAdd = await userModel.findOne({ email: newUserEmail });
-  if (!userToAdd) return next(new Error("Sorry, User not Exist", 404));
-
-  const isAlreadyAdmin = company.Admins.some(
-    (admin) => admin.user.toString() === userToAdd._id.toString(),
-  );
-
-  if (isAlreadyAdmin)
-    return next(new Error("This user already exists in admins list", 400));
+  if (!userToAdd) return next(new Error("User not Exist", { cause: 404 }));
 
   company.Admins.push({ user: userToAdd._id, role: role || "admin" });
-
   await company.save();
 
-  await redisClient.set(CashKey, JSON.stringify(company), { EX: 300 });
+  await redisClient.del([ `User:CompanyPage:${companyId}`,`User:Dashboard:${companyId}`]);
 
-  res.status(200).json({
-    status: "success",
-    message: `${userToAdd.firstName + userToAdd.lastName}  add successfully as a ${role}`,
-  });
+  res.status(200).json({ status: "success", message: "Admin added successfully" });
+});
+export const GetCurrentCompanyAdmins = asyncHandler(async (req, res, next) => {
+    const { companyId } = req.params;
+    const userId = req.user._id;
+
+    const company = await companyModel.findById(companyId).populate("Admins.user", "firstName lastName userProfileImg email").select("Admins");
+
+    if (!company) return next(new Error("Company not found", { cause: 404 }));
+
+    const isAuthorized = company.Admins.some(a => a.user._id.toString() === userId.toString());
+    if (!isAuthorized) return next(new Error("Unauthorized: Only admins can view admin list", { cause: 403 }));
+
+    res.status(200).json({ status: "success", data: company.Admins });
+});
+
+
+
+export const addEmployeesToCompany = asyncHandler(async (req, res, next) => {
+
+    const { companyId } = req.params;
+    const { employeeId } = req.body; 
+    const currentUserId = req.user._id;
+
+    const company = await companyModel.findById(companyId);
+    if (!company) return next(new Error("Company not found", { cause: 404 }));
+
+
+    const currentAdmin = company.Admins.find((admin) => admin.user.toString() === currentUserId.toString());
+
+    if (!currentAdmin || !["admin", "superAdmin"].includes(currentAdmin.role)) {
+      return next(new Error("Unauthorized: Only admins can manage employees", { cause: 403 }));
+    }
+
+    const isAlreadyEmployee = company.Employees.includes(employeeId);
+    if (isAlreadyEmployee) {return next(new Error("User is already an employee in this company", { cause: 400 }));}
+
+
+    await companyModel.findByIdAndUpdate(companyId, {$addToSet: { Employees: employeeId }});
+
+    await userModel.findByIdAndUpdate(employeeId, { $set: { currentCompany: companyId }});
+
+    await redisClient.del([`User:CompanyPage:${companyId}`,`User:Dashboard:${companyId}`,`CompanyEmployees:${companyId}`]);
+
+    res.status(200).json({ status: "success",  message: "Employee added successfully to the company" });
+});
+export const GetCurrentCompanyEmployees = asyncHandler(async (req, res, next) => {
+
+    const { companyId } = req.params;
+    const cacheKey = `CompanyEmployees:${companyId}`;
+
+    const cachedEmployees = await redisClient.get(cacheKey);
+    if (cachedEmployees) {
+      const dataCount= JSON.parse(cachedEmployees)
+      return res.status(200).json({ status: "success", source: "Cache",count:dataCount.length, data: JSON.parse(cachedEmployees) });
+    }
+
+    const company = await companyModel.findById(companyId).populate("Employees", "firstName lastName userProfileImg userSubTitle jobTitle").select("Employees");
+
+    if (!company) return next(new Error("Company not found", { cause: 404 }));
+
+    await redisClient.set(cacheKey, JSON.stringify(company.Employees), { EX: 1800 });
+
+    res.status(200).json({ status: "success", source: "DB",count:company.Employees.length , data: company.Employees });
+
 });

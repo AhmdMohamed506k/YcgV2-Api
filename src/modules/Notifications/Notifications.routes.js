@@ -1,6 +1,7 @@
 import { Router } from "express";
 import * as NT from "./Notifications.controller.js"
 import { auth } from "../../middleware/Auth/auth.js";
+import { activeIdentity } from "../../middleware/activeIdentity/activeIdentity.js";
 
 
 
@@ -10,9 +11,9 @@ const NotificationRouter= Router()
 
 
 
-NotificationRouter.get("/GetNotifications",auth, NT.GetMyNotifications);
+NotificationRouter.get("/GetNotifications",auth,activeIdentity , NT.GetMyNotifications);
 
-NotificationRouter.patch("/MarkAsRead",auth,NT.MarkUserNotificationsAsRead);
+NotificationRouter.patch("/MarkAsRead",auth,activeIdentity ,NT.MarkUserNotificationsAsRead);
 
 
 

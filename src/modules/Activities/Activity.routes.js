@@ -24,6 +24,7 @@ ActivityRouter.post("/createActivity", auth, activeIdentity,MulterHost([...valid
 ActivityRouter.get("/Home", auth,AC.getHybridFeed);
 ActivityRouter.get("/GetAllActivities/:OwnerId",auth,AC.GetAllUserActivities);
 ActivityRouter.get("/Profiles/ActivityDetails/:activityId", auth,activeIdentity,AC.GetSpecificActivityInfo);
+ActivityRouter.get("/ActivityAnalytics/ActivitySummery/:activityId", auth,activeIdentity,AC.GetActivityAnalytics);
 
 
 

@@ -11,7 +11,7 @@ const chatSchema = new Schema({
         participantType: { 
             type: String, 
             required: true, 
-            enum: ['User', 'Company'] 
+            enum: ['user', 'Company'] 
         }
     }],
     participantIds: [{

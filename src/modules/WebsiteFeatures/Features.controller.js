@@ -19,6 +19,8 @@ import { viewModel } from "../../../DB/models/Views/viewer.model.js";
 //RED1:==================================================Follow_Operations===============================================================
 //GREEN3==> Toggle-Follow
 export const ToggleFollow = asyncHandler(async (req, res, next) => {
+
+
     const { followingId, onModel } = req.body; 
     const { id: activeId, type: activeType, name: activeName, img: activeImg } = req.identity;
 
@@ -26,75 +28,61 @@ export const ToggleFollow = asyncHandler(async (req, res, next) => {
         return next(new Error("You cannot follow yourself", { cause: 400 }));
     }
 
-    const TargetModel = onModel === 'user' ? userModel : companyModel;
+    const TargetModel = onModel.toLowerCase() === 'user' ? userModel : companyModel;
     const targetExists = await TargetModel.findById(followingId);
     if (!targetExists) return next(new Error(`${onModel} not found`, { cause: 404 }));
 
     const existingFollow = await followModel.findOne({ followerId: activeId, followingId, onModel });
 
-    const cacheKeysToDel = [];
+    const cacheKeys = new Set([`Notifications:${activeId}`,`Notifications:${followingId}`]);
 
-    if (activeType === "user") {
-        cacheKeysToDel.push(`user:profile:${activeId}`);
-    } else {
-        cacheKeysToDel.push(`User:CompanyPage:${activeId}`, `User:Dashboard:${activeId}`); 
-    }
 
-   
-    if (onModel === "user" || onModel === "User") {
-        cacheKeysToDel.push(`user:profile:${followingId}`);
-    } else {
-        cacheKeysToDel.push(`User:CompanyPage:${followingId}`, `User:Dashboard:${followingId}`);
-    }
+    if (activeType === "user") cacheKeys.add(`user:profile:${activeId}`);
+    else cacheKeys.add(`User:CompanyPage:${activeId}`).add(`User:Dashboard:${activeId}`);
+
+    if (onModel.toLowerCase() === "user") cacheKeys.add(`user:profile:${followingId}`);
+    else cacheKeys.add(`User:CompanyPage:${followingId}`).add(`User:Dashboard:${followingId}`);
 
     if (existingFollow) {
         // --- Unfollow Logic ---
         await followModel.deleteOne({ _id: existingFollow._id });
-
-        // decrease target followers 
         await TargetModel.findByIdAndUpdate(followingId, { $inc: { followersCount: -1 } });
-        
-        // decrease people that i follow
         const MeModel = activeType === 'user' ? userModel : companyModel;
         await MeModel.findByIdAndUpdate(activeId, { $inc: { followingCount: -1 } });
 
-        if (cacheKeysToDel.length > 0) {
-            await redisClient.del(cacheKeysToDel);
-        }
-
+        await redisClient.del([...cacheKeys]);
         return res.status(200).json({ status: "success", message: "Unfollowed successfully" });
     } else {
         // --- Follow Logic ---
         await followModel.create({ followerId: activeId, followerType: activeType, followingId, onModel });
-
-        // increase target followers 
         await TargetModel.findByIdAndUpdate(followingId, { $inc: { followersCount: 1 } });
-
-        // increase people that i follow
         const MeModel = activeType === 'user' ? userModel : companyModel;
         await MeModel.findByIdAndUpdate(activeId, { $inc: { followingCount: 1 } });
 
-        if (cacheKeysToDel.length > 0) {
-            await redisClient.del(cacheKeysToDel);
-        }
+        await redisClient.del([...cacheKeys]);
 
-        const message = `${activeName} started following ${onModel === 'User' || onModel === 'user' ? 'you' : targetExists.CompanyName || targetExists.name}`;
+        // --- Notifications Logic ---
+        const message = `${activeName} started following you`; 
         const sendNotify = async (recipientId) => {
             await MyPusher.trigger(recipientId.toString(), "UserNotification", {
                 Message: message,
-                UserImg: activeImg
+                UserImg: activeImg,
+                Type: "follow"
             });
             await notificationModel.create({
                 recipient: recipientId,
-                sender: activeId, 
+                sender: req.user._id, 
                 type: "follow",
                 content: message
             });
         };
-
-        if (onModel === 'User' || onModel === 'user') {
+        
+ 
+        console.log(message);
+        
+        if (onModel.toLowerCase() === 'user') {
             await sendNotify(followingId);
-        } else if (onModel === 'Company') {
+        } else {
             const adminPromises = targetExists.Admins.map(admin => sendNotify(admin.user));
             await Promise.all(adminPromises);
         }
@@ -102,8 +90,8 @@ export const ToggleFollow = asyncHandler(async (req, res, next) => {
         return res.status(200).json({ status: "success", message: "Followed successfully" });
     }
 });
+//RED1:==================================================View_Operation==================================================================
 
-//RED1:==================================================View_Operation===============================================================
 //YELLOW2==> Record-View
 export const recordProfileView = asyncHandler(async(req, res, next) => {
     const { id: viewerId, type: viewerType } = req.identity; 
@@ -130,8 +118,8 @@ export const recordProfileView = asyncHandler(async(req, res, next) => {
 
     res.status(200).json({ status: "success", message: "View processed" });
 });
-
 //RED1:==================================================People-You-May-Know===============================================================
+
 //ORANGE1==> People-You-May-Know
 export const getPeopleYouMayKnow = asyncHandler(async (req, res, next) => {
   const userId = req.user._id;
