@@ -65,7 +65,7 @@ const jobSchema = new Schema({
     },
     createdBy: { 
         type: Types.ObjectId, 
-        ref: "User", 
+        ref: "user", 
         required: true 
     },
     applicationsCount: { 

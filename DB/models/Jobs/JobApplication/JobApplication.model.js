@@ -9,7 +9,7 @@ const jobApplicationSchema = new Schema({
     }, 
     applicantId: { 
       type: Types.ObjectId, 
-      ref: "User", 
+      ref: "user", 
       required: true 
     },
     companyId: { 
@@ -51,7 +51,7 @@ const jobApplicationSchema = new Schema({
     },
     addedBy: { 
       type: Types.ObjectId,
-      ref: "User", 
+      ref: "user", 
       required: true 
     } 
 }, { timestamps: true });

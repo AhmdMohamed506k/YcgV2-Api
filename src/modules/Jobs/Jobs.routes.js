@@ -10,12 +10,14 @@ import { activeIdentity } from "../../middleware/activeIdentity/activeIdentity.j
 
 
 
-const JobRouter = Router()
+const JobRouter = Router();
 
 
 JobRouter.post("/CreateJob",auth,JB.CreateJobPost)//done
 
-JobRouter.patch("/ApplyToJob/:jobId", auth,activeIdentity , MulterHost(validExtensions.cv).single("CurrentUserCv") ,JB.ApplyToJob);
+JobRouter.get("/ApplicationDetails/:applicationId",auth,JB.GetApplicationDetails)//done
+
+JobRouter.post("/ApplyToJob/:jobId", auth,activeIdentity , MulterHost(validExtensions.cv).single("CurrentUserCv") ,JB.ApplyToJob);
 
 
 
