@@ -7,7 +7,9 @@ import cloudinary from "../../utils/Cloudinary/Cloudinary.js";
 import redisClient from "../../utils/redisClient/redisClient.js";
 import { sendEmail } from "../../service/SendEmail/sendMail.js"; 
 import { MyPusher } from "../../service/Pusher/PusherConfig.js"; 
-//RED1 Page-Jobs-Posts
+
+
+//RED1 CreateJobPost
 export const CreateJobPost = asyncHandler(async (req, res, next) => {
 
     const { title, description, companyId,requirements, locationType, jobType, experienceLevel,  salary, screeningQuestions, rejectionSettings,MustHaveQualifications,PreferredQualifications } = req.body;
@@ -58,7 +60,7 @@ export const CreateJobPost = asyncHandler(async (req, res, next) => {
 });
 
 
-//ORANGE1 Page-Jobs-Posts
+//ORANGE1 ApplyToJob
 export const ApplyToJob = asyncHandler(async (req, res, next) => {
 
 
@@ -185,13 +187,14 @@ export const GetApplicationDetails = asyncHandler(async (req, res, next) => {
     res.status(200).json({ status: "success", source: "database", data: application });
 });
 
-
+//ORANGE1 ApplyToJob
 export const ReviewAndRespondToApplication = asyncHandler(async (req, res, next) => {
+
     const { applicationId } = req.params;
     const { status, emailBody } = req.body;
     const userId = req.user._id;
 
-    // 1. Strict Validation (إجبار الـ HR على الرد)
+   
     if (!status || !["accepted", "rejected"].includes(status)) {
         return next(new Error("You must strictly provide a decision: 'accepted' or 'rejected'", { cause: 400 }));
     }
@@ -213,9 +216,9 @@ export const ReviewAndRespondToApplication = asyncHandler(async (req, res, next)
     const applicant = await userModel.findById(application.applicantId);
     if (!applicant) return next(new Error("Applicant not found", { cause: 404 }));
 
-    // 📧 إرسال الإيميل
+  
     const emailSubject = status === "accepted" 
-        ? `Update on your application for ${application.jobSnapshot.title} - Accepted`
+        ? `after reviewing your application for ${application.jobSnapshot.title} -  We would love to move to the next step of the interview!`
         : `Update on your application for ${application.jobSnapshot.title}`;
 
     await sendEmail({
@@ -224,7 +227,7 @@ export const ReviewAndRespondToApplication = asyncHandler(async (req, res, next)
         html: `<p>Dear ${applicant.name},</p><p>${emailBody}</p>`
     });
 
-    // 🔔 1. إنشاء الإشعار في قاعدة البيانات للتوثيق والـ History
+ 
     const notification = await notificationModel.create({
         recipient: applicant._id,
         sender: company._id,
