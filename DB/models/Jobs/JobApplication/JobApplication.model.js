@@ -17,7 +17,6 @@ const jobApplicationSchema = new Schema({
       ref: "Company", 
       required: true 
     },
-  
     jobSnapshot: {
         title: { type: String, required: true },
         description: { type: String, required: true },
@@ -54,7 +53,11 @@ const jobApplicationSchema = new Schema({
       ref: "user", 
       required: true 
     } 
-}, { timestamps: true });
+},{
+
+  timestamps: true 
+
+});
 
 jobApplicationSchema.index({ jobId: 1, applicantId: 1 }, { unique: true });
 

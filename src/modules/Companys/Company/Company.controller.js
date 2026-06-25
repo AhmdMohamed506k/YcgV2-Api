@@ -10,6 +10,8 @@ import redisClient from "../../../utils/redisClient/redisClient.js";
 
 
 
+// companyCacheKeys = 3
+
 // !==================================================Company-Page-CRUD===============================================================
 export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
   const { CompanyName, ContactEmail, Industry, OrganizationSize, OrganizationType, Website, Location, Description } = req.body;

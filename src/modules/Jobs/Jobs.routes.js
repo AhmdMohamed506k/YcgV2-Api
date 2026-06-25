@@ -13,8 +13,23 @@ import { activeIdentity } from "../../middleware/activeIdentity/activeIdentity.j
 const JobRouter = Router();
 
 
+// ====================================JobPostCRUD====================================================
+JobRouter.get("/JobPublicPage/:JobPostId",auth,JB.GetJobPostPublicPage)//done
+
 JobRouter.post("/CreateJob",auth,JB.CreateJobPost)//done
 
+JobRouter.put("/UpdateJob",auth,JB.UpdatePostedJobPost)//done
+
+JobRouter.delete("/DeleteJob/:JobPostId",auth,JB.DeleteSpecificJobPost)//done
+
+
+
+
+
+
+
+
+//=======================================ApplyToJob=======================================================
 JobRouter.get("/ApplicationDetails/:applicationId",auth,JB.GetApplicationDetails)//done
 
 JobRouter.post("/ApplyToJob/:jobId", auth,activeIdentity , MulterHost(validExtensions.cv).single("CurrentUserCv") ,JB.ApplyToJob);
