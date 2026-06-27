@@ -3,6 +3,12 @@ import { asyncHandler } from "../../middleware/asyncHandler/asyncHandler.js";
 
 const stripe = new Stripe(process.env.MyStripeAPIkey);
 
+
+
+
+
+
+// =========================================User-Subscription=============================================================================
 export const CreateCheckoutSession = asyncHandler(async (req, res, next) => {
   const { priceId } = req.body;
 
@@ -65,3 +71,7 @@ export const stripeWebhook = asyncHandler(async (req, res, next) => {
 
   res.json({ received: true });
 });
+
+
+
+// =========================================Company-Subscription=============================================================================

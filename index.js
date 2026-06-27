@@ -18,6 +18,7 @@ import CompanyRouter from "./src/modules/Companys/Company/Company.routes.js";
 import ActivityRouter from './src/modules/Activities/Activity.routes.js';
 import FeaturesRouter from './src/modules/WebsiteFeatures/Features.routes.js';
 import JobRouter from './src/modules/Jobs/Jobs.routes.js';
+import ApplicationRouter from './src/modules/Application/Application.routes.js';
 
 
 
@@ -47,8 +48,11 @@ app.use(cors({origin : "*"}));
 //ORANGE1==Companies=>
 app.use("/api/v1/Company", CompanyRouter); 
 
-//ORANGE1==Companies=>
+//ORANGE1==Jobs=>
 app.use("/api/v1/Jobs", JobRouter); 
+
+//ORANGE1==Applications=>
+app.use("/api/v1/applications", ApplicationRouter); 
 
 //ORANGE1==User=>
 app.use("/api/v1/user", UserRouter); 

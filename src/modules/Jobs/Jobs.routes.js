@@ -29,10 +29,7 @@ JobRouter.delete("/DeleteJob/:JobPostId",auth,JB.DeleteSpecificJobPost)//done
 
 
 
-//=======================================ApplyToJob=======================================================
-JobRouter.get("/ApplicationDetails/:applicationId",auth,JB.GetApplicationDetails)//done
 
-JobRouter.post("/ApplyToJob/:jobId", auth,activeIdentity , MulterHost(validExtensions.cv).single("CurrentUserCv") ,JB.ApplyToJob);
 
 
 

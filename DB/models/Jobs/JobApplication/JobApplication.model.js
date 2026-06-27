@@ -19,6 +19,7 @@ const jobApplicationSchema = new Schema({
     },
     jobSnapshot: {
         title: { type: String, required: true },
+        Position: { type: String, required: true },
         description: { type: String, required: true },
         requirements: [{ type: String }],
         locationType: { type: String, required: true },
