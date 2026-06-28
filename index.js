@@ -19,7 +19,7 @@ import ActivityRouter from './src/modules/Activities/Activity.routes.js';
 import FeaturesRouter from './src/modules/WebsiteFeatures/Features.routes.js';
 import JobRouter from './src/modules/Jobs/Jobs.routes.js';
 import ApplicationRouter from './src/modules/Application/Application.routes.js';
-
+import * as PY from "./src/modules/Payment/Payment.controller.js";
 
 
 
@@ -29,6 +29,11 @@ export const app = express()
 const port = process.env.port || 3000
 
 
+
+
+
+
+app.post("/api/v1/payment/webhook", express.raw({ type: 'application/json' }), PY.GlobalWebHook);
 
 
 
@@ -58,7 +63,7 @@ app.use("/api/v1/applications", ApplicationRouter);
 app.use("/api/v1/user", UserRouter); 
 
 //ORANGE1==Payment=>
-app.use("/api/v1/payment/webhook", PaymentRouter);
+app.use("/api/v1/payment", PaymentRouter);
 
 //ORANGE1==Chat=>
 app.use("/api/v1/user/Chat", ChatRouter);

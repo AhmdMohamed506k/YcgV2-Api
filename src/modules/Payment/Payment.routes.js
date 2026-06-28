@@ -7,11 +7,13 @@ import express from "express";
 
 const PaymentRouter= Router()
 
+// =============================User-Subscription===============================================
+PaymentRouter.post('/user/subscribe', auth, PY.CreateUserMonthlySubscriptionCheckOut);
 
 
-PaymentRouter.post('/subscribe', auth, PY.CreateCheckoutSession);
 
-PaymentRouter.post('/webhook',  express.raw({ type: 'application/json' }), PY.stripeWebhook);
+// =============================Companies-Subscription===============================================
+PaymentRouter.post('/Company/subscribe', auth, PY.CreateCompanySubscriptionCheckOut);
 
 
 export default PaymentRouter
