@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import { asyncHandler } from "../../middleware/asyncHandler/asyncHandler.js";
 import { userModel } from "../../../DB/models/User/UserMainModel/user.model.js";
-import { companyModel } from "../../../DB/models/Company/Company.model.js";
+import companyModel  from "../../../DB/models/Company/Company.model.js";
 import { sendEmail } from "../../service/sendEmail/sendMail.js";
 import  redisClient  from "../../utils/redisClient/redisClient.js";
 

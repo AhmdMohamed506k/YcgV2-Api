@@ -21,7 +21,9 @@ import JobRouter from './src/modules/Jobs/Jobs.routes.js';
 import ApplicationRouter from './src/modules/Application/Application.routes.js';
 import * as PY from "./src/modules/Payment/Payment.controller.js";
 
+import LiveServer from "./src/service/LiveStream/LiveServer.js";
 
+LiveServer();
 
 
 
