@@ -33,48 +33,49 @@ export const getHybridFeed = asyncHandler(async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-   
     const cacheKey = `Activities:${userId}:page:${page}:limit:${limit}`;
     const cachedData = await redisClient.get(cacheKey);
+    if (cachedData) return res.status(200).json({ status: "success", source: "Cache", data: JSON.parse(cachedData) });
 
-    if (cachedData) {
-        return res.status(200).json({ status: "success", source: "Cache", data: JSON.parse(cachedData) });
-    }
-
-
+  
     const myFollowing = await followModel.find({ followerId: userId }).distinct("followingId");
     const authorIds = [...myFollowing, userId];
 
+
+    const feed = await ActivityModel.aggregate([
+        {
+      
+            $match: {
+                $or: [
+                    { CreatedBy: { $in: authorIds } }, 
+                    { CreatedBy: { $nin: authorIds } } 
+                ]
+            }
+        },
+        { $sort: { createdAt: -1 } }, 
+        { $skip: skip },
+        { $limit: limit },
   
-    let posts = await ActivityModel.find({ CreatedBy: { $in: authorIds } })
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate("CreatedBy", "firstName lastName userProfileImg userSubTitle")
-        .populate({ path: "originalActivity", populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" } });
+        {
+            $lookup: {
+                from: "users", 
+                localField: "CreatedBy",
+                foreignField: "_id",
+                as: "CreatedBy"
+            }
+        },
+        { $unwind: { path: "$CreatedBy", preserveNullAndEmptyArrays: true } }
+    ]);
 
   
-    if (posts.length < limit) {
-        const remainingLimit = limit - posts.length;
-        const excludedIds = posts.map(p => p._id);
-
-        const globalPosts = await ActivityModel.find({
-            _id: { $nin: excludedIds },
-            CreatedBy: { $nin: authorIds }
-        })
-        .sort({ createdAt: -1 })
-        .limit(remainingLimit)
-        .populate("CreatedBy", "firstName lastName userProfileImg userSubTitle")
-        .populate({ path: "originalActivity", populate: { path: "CreatedBy", select: "firstName lastName userProfileImg" } });
-
-        posts = [...posts, ...globalPosts];
+    if (!feed || feed.length === 0) {
+        return res.status(200).json({ status: "success", message: "No activities found", data: [] });
     }
 
-    if (posts.length > 0) {
-        await redisClient.set(cacheKey, JSON.stringify(posts), { EX: 300 });
-    }
 
-    res.status(200).json({ status: "success", source: "DB", results: posts.length, data: posts });
+    await redisClient.set(cacheKey, JSON.stringify(feed), { EX: 300 });
+
+    res.status(200).json({ status: "success", source: "DB", results: feed.length, data: feed });
 });
 
 // DISPLAY: User / Company Profile Activities

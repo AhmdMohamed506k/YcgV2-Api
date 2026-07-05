@@ -590,7 +590,7 @@ export const ToggleUpdateUserProfileImage = asyncHandler(async (req, res, next) 
     }
 });
 
-//GOLD =============Apply-For-Job================== 
+
 
 
 

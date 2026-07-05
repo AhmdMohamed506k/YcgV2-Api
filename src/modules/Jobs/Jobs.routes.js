@@ -25,6 +25,14 @@ JobRouter.delete("/DeleteJob/:JobPostId",auth,JB.DeleteSpecificJobPost)//done
 
 
 
+// ====================================JobPostsOperations====================================================
+
+
+JobRouter.get("/getJobs" ,auth,JB.getAllJobsOrSearchForJob)//done
+
+
+
+
 
 
 

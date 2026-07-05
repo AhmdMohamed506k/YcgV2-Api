@@ -30,6 +30,7 @@
     "nodemailer": "^9.0.3",
     "pusher": "^5.3.2",
     "redis": "^5.10.0",
+    "slugify": "^1.6.9",
     "socket.io": "^4.8.3",
     "stripe": "^22.0.1",
     "twilio": "^5.11.1"

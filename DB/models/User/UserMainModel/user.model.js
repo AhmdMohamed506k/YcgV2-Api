@@ -127,10 +127,14 @@ const userSchema = new Schema(
         default: null,
       },
     },
-    userSections: {
-      userAboutSection: [aboutSectionSchema],
-      userLanguageSection: [LanguagesSectionSchema],
+    isChatBanned: { 
+      type: Boolean,
+      default: false 
     },
+
+
+
+  
   },
   {
     timestamps: true,

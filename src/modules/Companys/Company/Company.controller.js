@@ -2,9 +2,12 @@ import { ActivityModel } from "../../../../DB/models/Activities/Activities.model
 import companyModel from "../../../../DB/models/Company/Company.model.js";
 import { userModel } from "../../../../DB/models/User/UserMainModel/user.model.js";
 import { jobModel } from "../../../../DB/models/Jobs/JobPost/Job.model.js";
+import { applicationModel } from "../../../../DB/models/Jobs/JobApplication/JobApplication.model.js";
 import { asyncHandler } from "../../../middleware/asyncHandler/asyncHandler.js";
 import cloudinary from "../../../utils/Cloudinary/Cloudinary.js";
 import redisClient from "../../../utils/redisClient/redisClient.js";
+import slugify from "slugify"
+import { nanoid } from "nanoid";
 
 
 
@@ -14,6 +17,8 @@ import redisClient from "../../../utils/redisClient/redisClient.js";
 
 // !==================================================Company-Page-CRUD===============================================================
 export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
+
+
   const { CompanyName, ContactEmail, Industry, OrganizationSize, OrganizationType, Website, Location, Description } = req.body;
   const userId = req.user._id;
   
@@ -26,7 +31,10 @@ export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
   const isExist = await companyModel.findOne({ $or: [{ CompanyName }, { ContactEmail }] });
   if (isExist) return next(new Error("Company Name or Contact Email already exists", { cause: 409 }));
    
-  
+   
+   let baseSlug = slugify(CompanyName, { lower: true, strict: true });
+  const streamKey = `${baseSlug}-${nanoid(4)}`;
+
 
   let logoData = {};
   if (req.file) {
@@ -44,6 +52,7 @@ export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
     OrganizationSize,
     OrganizationType,
     Website,
+    streamKey,
     Description,
     Location,
     Logo: logoData,
@@ -53,7 +62,7 @@ export const CreateCompanyPage = asyncHandler(async (req, res, next) => {
   });
  
 
-  await redisClient.del([`User:CompanyPage:${company._id}`,`User:Dashboard:${company._id}`,`CompanyEmployees:${companyId}`]);
+  await redisClient.del([`User:CompanyPage:${company._id}`,`User:Dashboard:${company._id}`,`CompanyEmployees:${company._id}`]);
   const companiesListKeys = await redisClient.keys('User:CompanyLists:page*');
   if (companiesListKeys.length > 0) {
     await redisClient.del(companiesListKeys);
@@ -257,30 +266,25 @@ export const getAllCompanies = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({ status: "success", source: "DB", ...resultData });
 });
-
-// need Edit
 export const GetSpecificCompanyDashBoard = asyncHandler(async (req, res, next) => {
   const userId = req.user._id;
 
-  
   const company = await companyModel.findOne({ "Admins.user": userId })
     .populate("Followers")
     .populate("followersCount")
     .populate("Following")
     .populate("followingCount")
-    .populate("viewsCount");
-
+    .populate("viewsCount")
+    .populate("PageVisitors");
 
   if (!company) {
     return next(new Error("Company not found or you don't have access", { cause: 404 }));
   }
 
-
   const currentAdmin = company.Admins.find(a => a.user.toString() === userId.toString());
   if (!currentAdmin || !["admin", "superAdmin"].includes(currentAdmin.role)) {
     return next(new Error("Unauthorized: Access denied", { cause: 403 }));
   }
-
 
   const CashKey = `User:Dashboard:${company._id}`;
   const cachedData = await redisClient.get(CashKey);
@@ -289,20 +293,32 @@ export const GetSpecificCompanyDashBoard = asyncHandler(async (req, res, next) =
   }
 
  
-  const companyPosts = await ActivityModel.find({ CreatedBy: company._id });
+  const companyPosts = await ActivityModel.find({ CreatedBy: company._id }).populate('viewsCount');
+  
+  
+  const TotalActivityViews = companyPosts.reduce((acc, post) => acc + (post.viewsCount || 0), 0);
+
+  const TotalCompanyJobs = await jobModel.find({ companyId: company._id });
+  const TotalAvailableJobs = await jobModel.find({ companyId: company._id, state: 'open' });
+  const TotalCompanyApplication = await applicationModel.find({ companyId: company._id });
 
   const resultObject = {
     CompanyInfo: company,
     companyPosts: companyPosts,
-    companyPostsCount: companyPosts.length
+    companyPostsCount: companyPosts.length,
+    TotalActivityViews: TotalActivityViews, 
+    TotalCompanyJobs: TotalCompanyJobs,
+    TotalCompanyJobsCount: TotalCompanyJobs.length,
+    TotalCompanyAvailableJobs: TotalAvailableJobs,
+    TotalCompanyAvailableJobsCount: TotalAvailableJobs.length,
+    CompanyApplications: TotalCompanyApplication,
+    CompanyApplicationsCount: TotalCompanyApplication.length
   };
 
- 
   await redisClient.set(CashKey, JSON.stringify(resultObject), { EX: 300 });
 
   res.status(200).json({ status: "Success", source: "DB", data: resultObject });
 });
-
 
 
 

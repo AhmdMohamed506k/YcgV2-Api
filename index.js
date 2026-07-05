@@ -19,11 +19,11 @@ import ActivityRouter from './src/modules/Activities/Activity.routes.js';
 import FeaturesRouter from './src/modules/WebsiteFeatures/Features.routes.js';
 import JobRouter from './src/modules/Jobs/Jobs.routes.js';
 import ApplicationRouter from './src/modules/Application/Application.routes.js';
+import LiveStreamChatRouter from './src/modules/LiveStreamChat/LiveStreamChat.routes.js';
 import * as PY from "./src/modules/Payment/Payment.controller.js";
-
 import LiveServer from "./src/service/LiveStream/LiveServer.js";
 
-LiveServer();
+
 
 
 
@@ -32,16 +32,23 @@ const port = process.env.port || 3000
 
 
 
+//=========CorsOrigin=======>
+app.use(cors({origin : "*"}));
+//==ExpressJson==>
+app.use(express.json());
 
 
 
+
+//================Payment===============================>
 app.post("/api/v1/payment/webhook", express.raw({ type: 'application/json' }), PY.GlobalWebHook);
 
 
 
-app.use(express.json());
 
-app.use(cors({origin : "*"}));
+
+
+
 
 
 
@@ -52,58 +59,59 @@ app.use(cors({origin : "*"}));
 
 //RED1================MainRouters===============================>
 
-//ORANGE1==Companies=>
-app.use("/api/v1/Company", CompanyRouter); 
-
-//ORANGE1==Jobs=>
-app.use("/api/v1/Jobs", JobRouter); 
-
-//ORANGE1==Applications=>
-app.use("/api/v1/applications", ApplicationRouter); 
-
-//ORANGE1==User=>
-app.use("/api/v1/user", UserRouter); 
-
-//ORANGE1==Payment=>
-app.use("/api/v1/payment", PaymentRouter);
-
-//ORANGE1==Chat=>
-app.use("/api/v1/user/Chat", ChatRouter);
-
-//ORANGE1====Notifications=>
 app.use("/api/v1/user/Notifications", NotificationRouter);
 
-//*ORANGE1====Activities=>
+app.use("/api/v1/LiveStream", LiveStreamChatRouter);
+
+app.use("/api/v1/applications", ApplicationRouter);
+
 app.use("/api/v1/Activities", ActivityRouter);
 
-//*ORANGE1====WebsiteFeatures=>
 app.use("/api/v1/Features", FeaturesRouter);
+
+app.use("/api/v1/Company", CompanyRouter); 
+
+app.use("/api/v1/payment", PaymentRouter);
+
+app.use("/api/v1/user/Chat", ChatRouter);
+
+app.use("/api/v1/user", UserRouter); 
+
+app.use("/api/v1/Jobs", JobRouter); 
+
+
+
 
 
 
 
 //YELLOW1=================UserSections==========================>
-
-  
-app.use("/api/v1/AboutUser", AboutSectionRouter); 
+app.use("/api/v1/UserLicenses", LicensesAndcertificationsRouter); 
 
 app.use("/api/v1/UserExperiences", ExperienceSectionRouter);
 
-app.use("/api/v1/UserEducation", EducationSectionRouter); 
+app.use("/api/v1/UserEducation", EducationSectionRouter);
 
 app.use("/api/v1/UserLanguages", LanguageSectionRouter); 
 
-app.use("/api/v1/UserCourse", CourseSectionRouter); 
-
 app.use("/api/v1/UserProjects", ProjectSectionRouter); 
 
-app.use("/api/v1/UserLicenses", LicensesAndcertificationsRouter); 
+app.use("/api/v1/UserCourse", CourseSectionRouter); 
+
+app.use("/api/v1/AboutUser", AboutSectionRouter); 
 
 
-// YELLOW1!===========================>
 
 
 
+
+//=========================================LiveStream====================================================>
+LiveServer();
+
+
+
+
+//===========================>
 app.use('/', (req, res) => res.send('WellCome at YCG Api'))
 
 app.use((err, req, res, next) => {

@@ -5,6 +5,14 @@ import liveConfig from "./liveConfig.js";
 
 const processes = new Map();
 
+
+
+
+
+
+
+
+//================================================================buildFFmpegArgs=================================================================
 function buildFFmpegArgs(streamKey) {
   const input = `rtmp://127.0.0.1:${liveConfig.rtmp.port}/live/${streamKey}`;
 
@@ -115,6 +123,8 @@ function buildFFmpegArgs(streamKey) {
   };
 }
 
+
+//================================================================start=================================================================
 function start(streamKey) {
   if (processes.has(streamKey)) {
     return;
@@ -146,9 +156,10 @@ function start(streamKey) {
   processes.set(streamKey, ffmpeg);
 }
 
+//==============================================================stop===================================================================
 function stop(streamKey) {
+  
   const ffmpeg = processes.get(streamKey);
-
   if (!ffmpeg) return;
 
   ffmpeg.kill("SIGINT");

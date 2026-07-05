@@ -44,17 +44,20 @@ const companySchema = new Schema(
       country: String,
       address: String,
     },
+
     Logo: {
-      secure_url: String,
-      public_id: String,
-    },
-    Banner: {
       secure_url: {type:String,default:null},
       public_id: {type:String,default:null},
     },
+    streamKey: { 
+      type: String,
+      required: true, 
+      unique: true,
+      index: true 
+    },
     IsPremiumCompany:{
-      type:String,
-      default:null
+      type:Boolean,
+      default:false
     },
     Description: {
       type: String,
@@ -93,8 +96,13 @@ const companySchema = new Schema(
     type: Number,
     default: 0
     }
-  },
-  {
+
+
+
+
+
+
+  },{
     timestamps: true,
     toJSON: { virtuals: true },
     toObject: { virtuals: true },
@@ -130,6 +138,12 @@ companySchema.virtual("followingCount", {
 });
 
 ///////////////////Views/////////////////////////
+companySchema.virtual("PageVisitors", {
+  ref: "View",
+  localField: "_id",
+  foreignField: "profileId",
+
+});
 companySchema.virtual("viewsCount", {
   ref: "View",
   localField: "_id",

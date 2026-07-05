@@ -153,3 +153,47 @@ export const DeleteSpecificJobPost = asyncHandler(async (req, res, next) => {
 
 
 
+// ====================================JobPostsOperations====================================================
+export const getAllJobsOrSearchForJob = asyncHandler(async (req, res, next) => {
+
+
+  const { title, locationType, jobType, experienceLevel, minSalary, maxSalary } = req.query;
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  
+  const filter = { state: 'open' };
+
+ 
+  if (title) filter.title = { $regex: title, $options: 'i' };
+  if (locationType) filter.locationType = locationType;
+  if (jobType) filter.jobType = jobType;
+  if (experienceLevel) filter.experienceLevel = experienceLevel;
+  
+  if (minSalary || maxSalary) {
+    filter.salary = {};
+    if (minSalary) filter.salary.min = { $gte: Number(minSalary) };
+    if (maxSalary) filter.salary.max = { $lte: Number(maxSalary) };
+  }
+
+  
+  const jobs = await jobModel.find(filter)
+    .populate('companyId', 'CompanyName Logo')
+    .skip(skip)
+    .limit(limit)
+    .sort({ createdAt: -1 });
+
+  const totalJobs = await jobModel.countDocuments(filter);
+
+  res.status(200).json({ 
+    status: "success", 
+    data: jobs,
+    pagination: { 
+      totalJobs, 
+      page, 
+      totalPages: Math.ceil(totalJobs / limit) 
+    }
+  });
+});
+
