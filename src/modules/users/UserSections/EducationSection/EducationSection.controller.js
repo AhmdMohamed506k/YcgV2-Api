@@ -7,6 +7,13 @@ import redisClient from "../../../../utils/redisClient/redisClient.js";
 
 
 
+
+const clearCache = async (userId) => {
+    await redisClient.del(`Education:${userId}`);
+    await redisClient.del(`user:profile:${userId}`);
+};
+
+
 export const AddUserNewEducationField = asyncHandler(async (req, res, next) => {
 
 
@@ -48,15 +55,13 @@ export const AddUserNewEducationField = asyncHandler(async (req, res, next) => {
   }
 
   
-  const key = await redisClient.keys(`Education:*`);
-  if(key.length > 0){await redisClient.del(key)}
+     await clearCache(req.user._id)
 
 
   res.status(200).json({msg: "Education added successfully",education: educationObject,});
 });
 
-
-export const GetSpecificUserEductationSection = asyncHandler(async (req, res, next) => {
+export const GetSpecificUserEducationSection = asyncHandler(async (req, res, next) => {
 
     
   const CashKey = `Education:${req.user._id}`;
@@ -67,14 +72,13 @@ export const GetSpecificUserEductationSection = asyncHandler(async (req, res, ne
    return res.status(200).json({status:"success", source:'cach',data:JSON.parse(CashedData)})
   } 
 
-  const UserEductation= await EducationSectionModel.find({createdBy:req.user._id});
-  if (UserEductation.length == 0) { return res.status(400).json({ msg: "Sorry user doesn't has data in this section" }); }
+  const UserEducation= await EducationSectionModel.find({createdBy:req.user._id});
+  if (UserEducation.length == 0) { return res.status(400).json({ msg: "Sorry user doesn't has data in this section" }); }
 
-  await redisClient.set(CashKey , JSON.stringify(UserEductation),"EX",300);
+  await redisClient.set(CashKey , JSON.stringify(UserEducation),"EX",300);
 
-  return res.status(200).json({ UserEductation });
+  return res.status(200).json({status:"success", source:'DB', UserEducation });
 });
-
 
 export const updateEducationData = asyncHandler(async (req, res, next) => {
   const { _id } = req.params;
@@ -83,7 +87,7 @@ export const updateEducationData = asyncHandler(async (req, res, next) => {
 
   const isStillStudent = stillStudent === true || stillStudent === "true";
 
-
+   console.log(stillStudent)
 
   /* ---------- Find Education ---------- */
  
@@ -124,14 +128,12 @@ export const updateEducationData = asyncHandler(async (req, res, next) => {
   await education.save();
   
   // clear cach
-  const key = await redisClient.keys(`Education:*`);
-  if(key.length > 0){await redisClient.del(key)}
+  await clearCache(req.user._id)
 
   res.status(200).json({ msg: "Education updated successfully", education});
 });
 
-
-export const DeleteUserEductationSection = asyncHandler(async (req, res, next) => {
+export const DeleteUserEducationSection = asyncHandler(async (req, res, next) => {
     const { _id } = req.params;
 
     
@@ -139,7 +141,8 @@ export const DeleteUserEductationSection = asyncHandler(async (req, res, next) =
     if(!deletedEducation){
       return next(new Error("Education not found",400))
     }
-
+    
+    await clearCache(req.user._id)
     res.status(200).json({ msg: "Deleted successfully" });
   }
 );

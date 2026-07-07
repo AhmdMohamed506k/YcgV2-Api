@@ -13,7 +13,7 @@ const experienceSectionSchema = new mongoose.Schema({
         type: String,
 
     },
-    Experiencetype: {
+    ExperienceType: {
         type: String,
         Enum: ["Full time", "Part Time", "Freelance / Project", "Internship", "Student Activity", "FullTime"],
 

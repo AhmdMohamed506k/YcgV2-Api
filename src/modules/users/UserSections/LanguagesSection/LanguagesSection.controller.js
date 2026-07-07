@@ -1,16 +1,21 @@
 
 import { userModel } from "../../../../../DB/models/User/UserMainModel/user.model.js";
+import  LanguagesSectionModel  from "../../../../../DB/models/User/UserSections/Languages.model.js";
 import { asyncHandler } from "../../../../middleware/asyncHandler/asyncHandler.js";
 import redisClient from "../../../../utils/redisClient/redisClient.js";
 
 
+const clearCache = async (userId) => {
+    await redisClient.del(`Language:${userId}`);
+    await redisClient.del(`user:profile:${userId}`);
+};
 
 
 
-export const AddnewUserLanguageSection = asyncHandler(async (req, res, next) => {
+export const AddNewUserLanguageSection = asyncHandler(async (req, res, next) => {
 
     const { Language, Proficiency } = req.body;
-    const ObjectData = {Language, Proficiency,CreatedBy:req.user._id};
+   
 
      
     // Find User By ID
@@ -18,24 +23,16 @@ export const AddnewUserLanguageSection = asyncHandler(async (req, res, next) => 
     if (!user) return next(new Error("User not found", 400));
 
 
-    const sectionPath = "userSections.userLanguageSection";
-
-    // Initialize section if it doesn't exist
-    if (!user.userSections.userLanguageSection) {
-     await userModel.findByIdAndUpdate(req.user._id, { $set: { [sectionPath]: [] } }, { new: true });
-    }
-
     // Push language data
-    const NewLangauge = await userModel.findByIdAndUpdate(req.user._id, { $push: { [sectionPath]: ObjectData } }, { new: true });
+    const NewLanguage = await LanguagesSectionModel.create({Language, Proficiency,CreatedBy:req.user._id})
      
      
 
     // Clear cash
-    const Key = await redisClient.keys(`Language:*`);
-    if(Key.length > 0){ await redisClient.del(Key)};
+    await clearCache(req.user._id)
 
 
-    if (!NewLangauge) return next(new Error("Failed to add Language", 400));
+    if (!NewLanguage) return next(new Error("Failed to add Language", 400));
     res.status(200).json({ msg: "Language added successfully" });
     
 })
@@ -85,8 +82,7 @@ export const updateUserLanguageData = asyncHandler(async (req, res, next) => {
 
   
   //clear cash after update
-  const Key = await redisClient.keys(`Language:*`);
-  if(Key.length > 0){ await redisClient.del(Key)};
+   await clearCache(req.user._id)
 
   if (!result) { return next(new Error("Language not found or you are not authorized", 404)); }
   res.status(200).json({message: "Language updated successfully"});
@@ -108,8 +104,7 @@ export const DeleteUserLanguagesSection = asyncHandler(async (req, res, next) =>
 
 
   //clear cash after Delete
-  const Key = await redisClient.keys(`Language:*`);
-  if(Key.length > 0){ await redisClient.del(Key)};
+  await clearCache(req.user._id)
 
 
 

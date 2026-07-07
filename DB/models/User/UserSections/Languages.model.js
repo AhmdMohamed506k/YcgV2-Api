@@ -23,4 +23,4 @@ const LanguagesSectionSchema = new mongoose.Schema({
 
 const LanguagesSectionModel = model("LanguagesSection",LanguagesSectionSchema);
 
-export {LanguagesSectionModel,LanguagesSectionSchema} 
+export default LanguagesSectionModel;

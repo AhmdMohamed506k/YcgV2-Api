@@ -18,7 +18,4 @@ const aboutSectionSchema = new mongoose.Schema({
 
 const aboutSectionModel = model("aboutSection",aboutSectionSchema);
 
-export {
-aboutSectionModel,
-aboutSectionSchema
-} 
+export default aboutSectionModel;

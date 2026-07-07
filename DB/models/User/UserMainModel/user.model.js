@@ -1,10 +1,5 @@
 import mongoose, { Schema, model } from "mongoose";
-import { experienceSectionSchema } from "../UserSections/ExperienceSection.model.js";
-import { aboutSectionSchema } from "../UserSections/aboutSection.model.js";
-import { EducationSectionSchema } from "../UserSections/EducationSection.model.js";
-import { LanguagesSectionSchema } from "../UserSections/Languages.model.js";
-import { CourseSectionSchema } from "../UserSections/CourseSection.model.js";
-import { ProjectsSectionSchema } from "../UserSections/ProjectsSection.model.js";
+
 
 
 const userSchema = new Schema(

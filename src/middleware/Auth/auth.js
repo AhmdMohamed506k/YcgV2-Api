@@ -12,7 +12,7 @@ export const auth = async (req, res, next) => {
     if (!token) { return  res.status(400).json({ msg: "Sorry token not Exist" });}
     
     const decoded = jwt.verify(token, process.env.tokenKey);//Check if Decoding
-    
+    if(!decoded){return res.status(400).json({ msg: "Sorry Invalid Token" });}
     
     
    
@@ -22,7 +22,7 @@ export const auth = async (req, res, next) => {
     const user = await userModel.findOne({ email: decoded.email});
     
 
-    if (!user ) { return res.status(400).json({ msg: "you are not authorised" });}
+    if (!user ) { return res.status(400).json({ msg: "you are not authorized" });}
     req.user = user
     next()
 }

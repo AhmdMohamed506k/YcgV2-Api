@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { auth } from "../../../../middleware/Auth/auth.js";
 import * as AbSection from './AboutSection.controller.js'
+import * as AbsValidation from './AboutSectionValidation.js'
+import { validate } from "../../../../middleware/Validation/Validation.js";
 
 
 
@@ -9,10 +11,13 @@ const AboutSectionRouter= Router()
 
 
 
-AboutSectionRouter.get("/GetSpecificUserAboutSection", auth , AbSection.GetSpecificUserAboutSection);
-AboutSectionRouter.post("/AddNewUserAboutSection", auth , AbSection.AddNewUserAboutSection);
-AboutSectionRouter.put("/updatAboutSectionData/:_id", auth , AbSection.updatAboutSectionData);
-AboutSectionRouter.delete("/DeletUserAboutSection/:_id", auth , AbSection.DeletUserAboutSection);
+AboutSectionRouter.get("/GetAboutUser", auth ,validate(), AbSection.GetSpecificUserAboutSection);
+
+AboutSectionRouter.post("/AddAboutSection", auth ,validate(AbsValidation.addAboutSection), AbSection.AddNewUserAboutSection);
+
+AboutSectionRouter.put("/UpdateAboutSection", auth ,validate(AbsValidation.updateAboutSection), AbSection.updateAboutSectionData);
+
+AboutSectionRouter.delete("/DeleteAboutSection", auth ,validate(AbsValidation.deleteAboutSection), AbSection.DeleteUserAboutSection);
 
 
 

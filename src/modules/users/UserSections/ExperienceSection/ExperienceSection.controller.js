@@ -8,67 +8,36 @@ import redisClient from "../../../../utils/redisClient/redisClient.js";
 
 
 
+const clearCache = async (userId) => {
+    await redisClient.del(`Experience:${userId}`);
+    await redisClient.del(`user:profile:${userId}`);
+};
+
+
 
 //==> AddNewExperience
-export const AddnewUserExperiencSection = asyncHandler(async (req, res, next) => {
+export const AddNewUserExperienceSection = asyncHandler(async (req, res, next) => {
+    const { ExperienceType, JobTitle, CompanyName, StartFrom, EndingIn, Location, LocationType, StealWorking } = req.body;
 
-    const { Experiencetype, JobTitle, CompanyName, StartFrom, EndingIn, Location, LocationType, StealWorking } = req.body;
-
-
-    if (StartFrom > EndingIn) {
-      return res.status(400).json({ msg: "Start date must be before end date" })
-    }
-    if (StealWorking !== "false") {
-
-
-      const ObjectData = {  Experiencetype, JobTitle, CompanyName, StealWorking, Location, LocationType,  CreatedBy: req.user._id };
-
-      const user = await userModel.findById(req.user._id);
-      if (!user) return next(new Error("User not found", 400));
-
-
-
-     
-      const newExperience = await experienceSectionModel.create(ObjectData)
-
-      if (!newExperience) return next(new Error("Failed to add experience", 400));
-      
-     
-      const key= await redisClient.keys(`Experienc:*`);
-      if(key.length > 0){ await redisClient.del(key)};
-
-      res.status(200).json({ msg: "Experience added successfully" });
-
-
-    } else {
-
-    
-
-
-      const ObjectData = {  Experiencetype, JobTitle, CompanyName, StartFrom, EndingIn, StealWorking,Location, LocationType, CreatedBy: req.user._id };
-
-      const user = await userModel.findById(req.user._id);
-      if (!user) return next(new Error("User not found", 400));
-
-     
-      
-      const newExperience = await experienceSectionModel.create(ObjectData)
-
-      if (!newExperience) return next(new Error("Failed to add experience", 400));
-
-      const key= await redisClient.keys(`Experienc:*`);
-      if(key.length > 0){ await redisClient.del(key)};
-
-      res.status(200).json({ msg: "Experience added successfully" });
+   
+    if (StealWorking === "false" && StartFrom > EndingIn) {
+        return res.status(400).json({ msg: "Start date must be before end date" });
     }
 
-})
+    const ObjectData = {ExperienceType, JobTitle, CompanyName, StealWorking, Location, LocationType, CreatedBy: req.user._id,...(StealWorking === "false" && { StartFrom, EndingIn }) };
+
+    const newExperience = await experienceSectionModel.create(ObjectData);
+    if (!newExperience) return next(new Error("Failed to add experience", 400));
+
+    await clearCache(req.user._id);
+    res.status(200).json({ msg: "Experience added successfully" });
+});
 
 //==> GetUserExperience
-export const GetSpecificUserExperienc = asyncHandler(async(req,res,next)=>{
+export const GetSpecificUserExperience = asyncHandler(async(req,res,next)=>{
               
 
-  const cashKey= `Experienc:${req.user._id}`
+  const cashKey= `Experience:${req.user._id}`
    
   const CashedData= await redisClient.get(cashKey)
   if(CashedData){
@@ -85,16 +54,16 @@ export const GetSpecificUserExperienc = asyncHandler(async(req,res,next)=>{
 })
 
 //==> UpdataSpecificUserExperience
-export const updatExperiencData = asyncHandler(async (req, res, next) => {
+export const updateExperienceData = asyncHandler(async (req, res, next) => {
   const { _id } = req.params;
-  const { Experiencetype, JobTitle, CompanyName, StartFrom, EndingIn, Location, LocationType, StealWorking} = req.body;
+  const { ExperienceType, JobTitle, CompanyName, StartFrom, EndingIn, Location, LocationType, StealWorking} = req.body;
 
   const experience = await experienceSectionModel.findById(_id);
 
   if (!experience) {return next(new Error("Sorry Experience Not Found", { cause: 400 }));}
 
  
-  experience.Experiencetype = Experiencetype;
+  experience.ExperienceType = ExperienceType;
   experience.JobTitle = JobTitle;
   experience.CompanyName = CompanyName;
   experience.Location = Location;
@@ -111,13 +80,13 @@ export const updatExperiencData = asyncHandler(async (req, res, next) => {
 
   await experience.save();
  
-  const key= await redisClient.keys(`Experienc:*`);
-  if(key.length > 0){ await redisClient.del(key)};
+  await clearCache(req.user._id);
+
   return res.status(200).json({message: "Experience updated successfully", experience});
 });
 
 // ==> DeleteSpecificUserExperience
-export const DeletUserExperienceSection = asyncHandler(async (req, res, next) => {
+export const DeleteUserExperienceSection = asyncHandler(async (req, res, next) => {
   const { _id } = req.params;
 
   const experience = await experienceSectionModel.findByIdAndDelete(_id);
@@ -126,7 +95,9 @@ export const DeletUserExperienceSection = asyncHandler(async (req, res, next) =>
     return next(new Error("Experience Not Found", { cause: 404 }));
   }
    
-   const key= await redisClient.keys(`Experienc:*`);
-    if(key.length > 0){ await redisClient.del(key)};
+ 
+  await clearCache(req.user._id);
+
+
   return res.status(200).json({ message: "Experience deleted successfully"});
 });

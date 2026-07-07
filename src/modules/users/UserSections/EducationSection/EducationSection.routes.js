@@ -1,17 +1,21 @@
 import { Router } from "express";
 import { auth } from "../../../../middleware/Auth/auth.js";
 import * as ED from "./EducationSection.controller.js"
+import * as EDV from "./EducationValidation.js"
+import { validate } from "../../../../middleware/Validation/Validation.js";
 
 
 
 const EducationSectionRouter= Router()
 
 
-EducationSectionRouter.get("/GetSpecificUserEductationSection",auth, ED.GetSpecificUserEductationSection);
-EducationSectionRouter.post("/AddUserNewEducationField", auth, ED.AddUserNewEducationField);
+EducationSectionRouter.get("/GetUserEducationSection",auth, ED.GetSpecificUserEducationSection);
 
-EducationSectionRouter.put("/updateEducationData/:_id",auth, ED.updateEducationData);
-EducationSectionRouter.delete("/DeleteUserEductationSection/:_id",auth, ED.DeleteUserEductationSection);
+EducationSectionRouter.post("/AddNewEducation", auth,validate(EDV.AddEducation), ED.AddUserNewEducationField);
+
+EducationSectionRouter.put("/updateEducation/:_id",auth,validate(EDV.UpdateEducation), ED.updateEducationData);
+
+EducationSectionRouter.delete("/DeleteEducationSection/:_id",auth,validate(EDV.DeleteEducation), ED.DeleteUserEducationSection);
 
 
 

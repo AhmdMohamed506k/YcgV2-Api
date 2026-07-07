@@ -1,107 +1,74 @@
 import { userModel } from "../../../../../DB/models/User/UserMainModel/user.model.js";
+import aboutSectionModel from "../../../../../DB/models/User/UserSections/aboutSection.model.js";
 import { asyncHandler } from "../../../../middleware/asyncHandler/asyncHandler.js";
+import redisClient from "../../../../utils/redisClient/redisClient.js"
 
 
+const clearUserCache = async (userId) => {
+    await redisClient.del(`user:profile:${userId}`);
+};
 
+export const GetSpecificUserAboutSection = asyncHandler(async (req, res, next) => {
 
-export const GetSpecificUserAboutSection = asyncHandler(async(req,res,next)=>{
+    const cacheKey = `User:Profile:${req.user._id}:About`;
+    const cachedData = await redisClient.get(cacheKey);
 
     
-    const user = await userModel.findById(req.user._id);
-    if (!user) return next(new Error("User not found", 400));
+    if (cachedData) return res.status(200).json({ UserAboutSection: JSON.parse(cachedData) });
 
-    const UserAboutSection = user.userSections.userAboutSection;
-    
-    if(UserAboutSection.length == 0){
-      return res.status(200).json({msg:"Sorry user doesn't has data in this section"})
-    }
-    
+    const UserAboutSection = await aboutSectionModel.findOne({CreatedBy:req.user._id});
+    if (!UserAboutSection) return next(new Error("User not found", 400));
 
-     res.status(200).json({UserAboutSection})
-})
+    
+    await redisClient.set(cacheKey, JSON.stringify(UserAboutSection), { EX: 3600 });
+    res.status(200).json({ UserAboutSection });
+});
+
 export const AddNewUserAboutSection = asyncHandler(async (req, res, next) => {
 
     const { userDescription } = req.body;
+
+  
+
+    const UserHaveSection = await aboutSectionModel.findOne({CreatedBy:req.user._id})
+    if (UserHaveSection != null) {
+        return res.status(400).json({ msg: "Sorry, you cannot add more than 1 section" });
+    }
+
+
+    const NewUserSection = await aboutSectionModel.create({userDescription,CreatedBy:req.user._id})
+
     
+    await clearUserCache(req.user._id);
+    res.status(200).json({ msg: "Added successfully" });
+});
 
-
-  
-
-    // Initialize section if it doesn't exist
-    if (!req.user.userSections.userAboutSection) {
-        await userModel.findByIdAndUpdate(req.user._id, { $set: { 'UserSections.UseraboutSection': [] } }, { new: true });
-    }
-     
-
-
-
-
-    if(req.user.userSections.userAboutSection.length < 1){
-     const updatedUser = await userModel.findByIdAndUpdate(req.user._id, { $push: { 'userSections.userAboutSection': {userDescription , CreatedBy:req.user._id} } }, { new: true });
-
-
-     if (!updatedUser) return next(new Error("Failed to add experience", 400));
-     res.status(200).json({ msg: "added successfully" });
-
-
-     
-    }else{
-       res.status(400).json({ msg: "Sorry you can not add more then 1 section" });
-    }
-      
+export const updateAboutSectionData = asyncHandler(async (req, res, next) => {
 
   
-
-
-})
-export const updatAboutSectionData = asyncHandler(async (req, res, next) => {
-    const { _id } = req.params;
     const { userDescription } = req.body;
 
+    const UserAboutSection = await aboutSectionModel.findOne({CreatedBy:req.user._id})
+    if(!UserAboutSection){
+        return next(new Error("Sorry Section Not Found ",{cause:404}))
+    }
 
- 
 
+   UserAboutSection.userDescription = userDescription;
+   await UserAboutSection.save()
 
-
-    const aboutData = req.user.userSections.userAboutSection.find(exp => exp._id);
-
-    if (!aboutData) { 
-    return next(new Error("Sorry, you cant edit now :(", 400));
     
-    }
-     const result = await userModel.findOneAndUpdate( {"userSections.userAboutSection._id": _id,},{$set: {"userSections.userAboutSection.$[elem].userDescription": userDescription,}},
-            {
-                arrayFilters: [
-                    {
-                        "elem._id": _id
-                    }
-                ],
-                new: true // return the updated doc
-            }
-        );
-  
+    await clearUserCache(req.user._id);
+    res.status(200).json({ msg: "Updated successfully" });
+});
 
+export const DeleteUserAboutSection = asyncHandler(async (req, res, next) => {
 
-      res.status(200).json({msg:"Updated successfully"})
+    const { _id } = req.body;
 
+    const SectionExists = await aboutSectionModel.findOneAndDelete({_id});
+    if (!SectionExists) return next(new Error("Section not Found",{cause:404}));
 
-})
-export const DeletUserAboutSection = asyncHandler(async (req, res, next) => {
-    const { _id } = req.params;
-
-  
-    const aboutSections = req.user.userSections.userAboutSection;
-
-   
-    const sectionIndex = aboutSections.findIndex(section => section._id.toString() === _id);
-    if (sectionIndex === -1) {
-        return next(new Error("Section not found or you do not have permission to delete it."));
-    }
-
-
-    aboutSections.splice(sectionIndex, 1);
-    await req.user.save();
-
+    await clearUserCache(req.user._id);
     res.status(200).json({ msg: "Deleted successfully" });
-
-})
+});

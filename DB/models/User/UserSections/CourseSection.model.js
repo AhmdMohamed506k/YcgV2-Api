@@ -9,7 +9,7 @@ const CourseSectionSchema = new mongoose.Schema({
         lowercase:true,
         required:true
     },
-    ComanyName:{
+    CompanyName:{
         type:String,
         lowercase:true,
     },
@@ -22,4 +22,4 @@ const CourseSectionSchema = new mongoose.Schema({
 })
 
 const CourseSectionModel= model("CourseSectionModel",CourseSectionSchema);
-export {CourseSectionSchema,CourseSectionModel }
+export default CourseSectionModel ;

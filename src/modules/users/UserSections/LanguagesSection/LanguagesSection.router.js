@@ -8,9 +8,12 @@ import * as LS from "./LanguagesSection.controller.js"
 const LanguageSectionRouter = Router();
 
 
-LanguageSectionRouter.get("/GetSpecificUserLanguages",auth, LS.GetSpecificUserLanguages);
-LanguageSectionRouter.post("/AddnewUserLanguageSection",auth, LS.AddnewUserLanguageSection);
+LanguageSectionRouter.get("/GetUserLanguage",auth, LS.GetSpecificUserLanguages);
+
+LanguageSectionRouter.post("/AddNewLanguage",auth, LS.AddNewUserLanguageSection);
+
 LanguageSectionRouter.put("/updateUserLanguageData/:_id",auth, LS.updateUserLanguageData);
+
 LanguageSectionRouter.delete("/DeleteUserLanguagesSection/:_id",auth, LS.DeleteUserLanguagesSection);
 
 

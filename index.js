@@ -1,7 +1,7 @@
 
 import 'dotenv/config'
 import express from "express";
-import connectionDB from "./DB/contectionDB.js";
+import connectionDB from "./DB/connectionDB.js";
 import cors from "cors";
 import UserRouter from "./src/modules/users/User/user.routes.js";
 import ExperienceSectionRouter from "./src/modules/users/UserSections/ExperienceSection/ExperienceSection.routes.js";
@@ -86,19 +86,19 @@ app.use("/api/v1/Jobs", JobRouter);
 
 
 //YELLOW1=================UserSections==========================>
-app.use("/api/v1/UserLicenses", LicensesAndcertificationsRouter); 
+app.use("/api/v1/UserSections/UserLicenses", LicensesAndcertificationsRouter); 
 
-app.use("/api/v1/UserExperiences", ExperienceSectionRouter);
+app.use("/api/v1/UserSections/UserProjects", ProjectSectionRouter); 
 
-app.use("/api/v1/UserEducation", EducationSectionRouter);
+app.use("/api/v1/UserSections/UserLanguage", LanguageSectionRouter); 
 
-app.use("/api/v1/UserLanguages", LanguageSectionRouter); 
+app.use("/api/v1/UserSections/UserExperience", ExperienceSectionRouter);
 
-app.use("/api/v1/UserProjects", ProjectSectionRouter); 
+app.use("/api/v1/UserSections/EducationSection", EducationSectionRouter);
 
-app.use("/api/v1/UserCourse", CourseSectionRouter); 
+app.use("/api/v1/UserSections/CourseSection", CourseSectionRouter); 
 
-app.use("/api/v1/AboutUser", AboutSectionRouter); 
+app.use("/api/v1/UserSections/AboutSection", AboutSectionRouter); 
 
 
 
