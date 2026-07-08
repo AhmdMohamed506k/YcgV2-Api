@@ -50,7 +50,7 @@ The platform utilizes a **Modular Design Pattern** to ensure maintainability and
    ```bash
    git clone [ https://github.com/AhmdMohamed506k/YcgV2-Api ]
    cd Ycg
-
+   ```
 
 
 2. **Install dependencies:**   
@@ -61,6 +61,7 @@ The platform utilizes a **Modular Design Pattern** to ensure maintainability and
 
  ```bash
    docker-compose up --build
+ ```
 
 ## 💡 Built By
 
