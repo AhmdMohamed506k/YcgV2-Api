@@ -57,11 +57,14 @@ The platform utilizes a **Modular Design Pattern** to ensure maintainability and
 
 * Create a .env file in the root directory. Add your essential credentials (Pusher, Cloudinary, MongoDB URI, etc.).
 
-3. **Launch the platform:** 
 
- ```bash
-   docker-compose up --build
- ```
+
+
+3. **Launch the platform:**
+   ```bash
+    docker-compose up --build
+
+    
 
 ## 💡 Built By
 
