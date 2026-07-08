@@ -1,11 +1,17 @@
 
 import { nanoid } from "nanoid";
-import { userModel } from "../../../../../DB/models/User/UserMainModel/user.model.js";
+import { userModel } from "../../../../../DB/models/User/user_main_model/user.model.js";
 import {asyncHandler} from "../../../../middleware/asyncHandler/asyncHandler.js"
-import cloudinary from "../../../../utils/Cloudinary/Cloudinary.js"
+import cloudinary from "../../../../utils/cloudinary/cloudinary.js"
 import { ProjectsSectionModel } from "../../../../../DB/models/User/UserSections/ProjectsSection.model.js";
-import redisClient from "../../../../utils/redisClient/redisClient.js";
+import redisClient from "../../../../utils/redis_client/redis_client.js";
 
+
+
+const clearCache = async (userId) => {
+    await redisClient.del(`UserProjects:${userId}`);
+    await redisClient.del(`user:profile:${userId}`);
+};
 
 
 
@@ -13,6 +19,9 @@ import redisClient from "../../../../utils/redisClient/redisClient.js";
 export const AddUserNewProject = asyncHandler(async (req, res, next) => {
 
   const userId = req.user._id;
+
+
+  
 
   const userExist = await userModel.findById(userId);
   if (!userExist) {return next(new Error("User Not Exist", { cause: 400 }));}
@@ -24,14 +33,14 @@ export const AddUserNewProject = asyncHandler(async (req, res, next) => {
   const randomId = nanoid();
 
   const newProject = { ProjectName: req.body.ProjectName,CreatedBy: userId};
+  
+ 
+  
+
 
   if (req.body.Description) {newProject.Description = req.body.Description;}
 
-  if (req.body.UsedSkills) {
-    newProject.UsedSkills = Array.isArray(req.body.UsedSkills)
-      ? req.body.UsedSkills
-      : req.body.UsedSkills.split(",");
-  }
+  if (req.body.UsedSkills) {newProject.UsedSkills = Array.isArray(req.body.UsedSkills)? req.body.UsedSkills: req.body.UsedSkills.split(",");}
 
   /** Upload Media in parallel */
   const uploads = [];
@@ -41,7 +50,6 @@ export const AddUserNewProject = asyncHandler(async (req, res, next) => {
       folder: `Ycg/users/${userId}/${req.user.firstName}_${req.user.lastName}/UserProjects/${randomId}/Media`,
     })
   );
-
   if (req.files.MediaCoverImage?.length) {
     uploads.push(await cloudinary.uploader.upload(req.files.MediaCoverImage[0].path, {
         resource_type: "image",
@@ -49,14 +57,11 @@ export const AddUserNewProject = asyncHandler(async (req, res, next) => {
       })
     );
   }
-
   const [mediaUpload, coverUpload] = await Promise.all(uploads);
-
   newProject.Media = {
     secure_url: mediaUpload.secure_url,
     public_id: mediaUpload.public_id,
   };
-
   if (coverUpload) {
     newProject.MediaCoverImage = {
       secure_url: coverUpload.secure_url,
@@ -64,11 +69,14 @@ export const AddUserNewProject = asyncHandler(async (req, res, next) => {
     };
   }
  
+  /** Create New project */
+
+
   
   const project = await ProjectsSectionModel.create(newProject);
 
- const Key = await redisClient.keys(`Language:*`);
-  if(Key.length > 0){ await redisClient.del(Key)};
+  
+  await clearCache(req.user._id)
 
   res.status(201).json({msg: "Project added successfully",project});
 
@@ -79,20 +87,20 @@ export const GetUserProjects = asyncHandler(async (req,res,next)=>{
 
   
 
-  const CashKey = `Language:${req.user._id}`
+  const CashKey = `UserProjects:${req.user._id}`
 
 
 
   //Check if User Project are Cashed or not
   const CashData= await redisClient.get(CashKey);
   if (CashData) {
-    return res.status("200").json({status:"success" , source:"Cash",UserProjects:JSON.parse(CashData)});
+    return res.status(200).json({status:"success" , source:"Cash",UserProjects:JSON.parse(CashData)});
   }
  
   //IF project not Cashed Get All User Projects
  const UserProjects = await ProjectsSectionModel.find({CreatedBy:req.user._id})
   if(!UserProjects){
-    return next(new Error("Sorry you dont have Projects",400))
+    return next(new Error("Sorry you don't have Projects",400))
   }
 
   //then cash Projects
@@ -182,9 +190,7 @@ export const UpdateSpecificProject = asyncHandler(async (req, res, next) => {
   await ProjectsSectionModel.findOneAndUpdate( { _id: ProjectID }, UpdatedProjectObject, { new: true });
    
   
- const Key = await redisClient.keys(`Language:*`);
-  if(Key.length > 0){ await redisClient.del(Key)};
-
+  await clearCache(req.user._id)
 
   res.status(200).json({ msg: "Updated successfully" });
 });
@@ -192,8 +198,11 @@ export const UpdateSpecificProject = asyncHandler(async (req, res, next) => {
 export const DeleteSpecificProject = asyncHandler(async (req, res, next) => {
 
 
-  const { ProjectID } = req.body;
+  const { ProjectID } = req.params;
   const UserID = req.user._id;
+
+
+  
 
 
   const project = await ProjectsSectionModel.findOne({_id: ProjectID, CreatedBy: UserID, });
@@ -220,8 +229,7 @@ export const DeleteSpecificProject = asyncHandler(async (req, res, next) => {
   await ProjectsSectionModel.deleteOne({ _id: ProjectID });
 
  
-  const Key = await redisClient.keys(`Language:*`);
-  if(Key.length > 0){ await redisClient.del(Key)};
+  await clearCache(req.user._id)
 
   res.status(200).json({msg: "Project deleted successfully",});
 });

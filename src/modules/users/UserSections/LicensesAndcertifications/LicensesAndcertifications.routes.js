@@ -1,22 +1,27 @@
 import { Router } from "express";
-import {auth} from '../../../../middleware/Auth/auth.js';
-
+import {auth} from '../../../../middleware/auth/auth.js';
 import * as LC from "./LicensesAndcertifications.controller.js"
-import { MulterHost, validExtensions } from "../../../../middleware/MulterHost/MulterHost.js";
+import * as LCV from "./LicensesValidation.js"
+import { validate } from "../../../../middleware/validation/validation.js";
+
+import { MulterHost, validExtensions } from "../../../../middleware/multerHost/multerHost.js";
 
 
 
 
 
-const LicensesAndcertificationsRouter= Router();
+const LicensesAndCertificationsRouter = Router();
 
-LicensesAndcertificationsRouter.get("/GetUserLicenses",auth ,LC.GetUserLicenses);
-LicensesAndcertificationsRouter.post('/AddLicensesAndcertifications', auth , MulterHost(validExtensions.image).single("CertificationImage") , LC.AddLicensesAndcertifications);
-LicensesAndcertificationsRouter.put('/UpdateUserLicenseByID/:id', auth , MulterHost(validExtensions.image).single("CertificationImage") , LC.UpdateUserLicenseByID);
-LicensesAndcertificationsRouter.delete("/DeleteUserLicenseById/:id",auth ,LC.DeleteUserLicenseById);
+LicensesAndCertificationsRouter.get("/GetUserLicenses",auth ,LC.GetUserLicenses);
+
+LicensesAndCertificationsRouter.post('/AddNewLicenseOrCertification', auth , MulterHost(validExtensions.image).single("CertificationImage"),validate(LCV.addLicense), LC.AddLicensesAndcertifications);
+
+LicensesAndCertificationsRouter.put('/UpdateLicense/:id', auth , MulterHost(validExtensions.image).single("CertificationImage"),validate(LCV.updateLicense), LC.UpdateUserLicenseByID);
+
+LicensesAndCertificationsRouter.delete("/DeleteLicense/:id",auth,validate(LCV.deleteLicense), LC.DeleteUserLicenseById);
 
 
 
 
 
-export default LicensesAndcertificationsRouter;
+export default LicensesAndCertificationsRouter;

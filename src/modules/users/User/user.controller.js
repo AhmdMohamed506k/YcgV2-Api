@@ -1,21 +1,21 @@
-import { asyncHandler } from "../../../middleware/asyncHandler/asyncHandler.js";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-import { sendEmail } from "../../../service/sendEmail/sendMail.js";
-import cloudinary from "../../../utils/Cloudinary/Cloudinary.js";
+import redisClient  from "../../../utils/redis_client/redis_client.js";
 import { customAlphabet, nanoid } from "nanoid";
-import { userModel } from "../../../../DB/models/User/UserMainModel/user.model.js";
-import { followModel } from "../../../../DB/models/Follow/follow.model.js";
-import { viewModel } from "../../../../DB/models/Views/viewer.model.js";
-import redisClient  from "../../../utils/redisClient/redisClient.js";
-import MyPusher from "../../../service/Pusher/PusherConfig.js";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+import cloudinary from "../../../utils/cloudinary/cloudinary.js";
+import MyPusher from "../../../service/pusher/pusher_config.js";
+import { asyncHandler } from "../../../middleware/asyncHandler/asyncHandler.js";
+import { sendEmail } from "../../../service/send_email/send_email.js";
+import { userModel } from "../../../../DB/models/User/user_main_model/user.model.js";
+import { followModel } from "../../../../DB/models/follow/follow.model.js";
+import { viewModel } from "../../../../DB/models/views/viewer.model.js";
 
 
 //GOLD =============Register&CreateAccountApis==================? //
 export const Register = asyncHandler(async (req, res, next) => {
   // Register
 
-  const { email, password, userPhoneNumber, dateofBirth } = req.body;
+  const { email, password, userPhoneNumber, dateOfBirth } = req.body;
 
   //CheckIfEmailIsAvailable
   const userExist = await userModel.findOne({ email });
@@ -41,7 +41,7 @@ export const Register = asyncHandler(async (req, res, next) => {
     email,
     password: hashPass,
     userPhoneNumber,
-    dateofBirth,
+    dateOfBirth,
     Emailverificationcode: code,
   });
 
@@ -654,8 +654,8 @@ export const getAllUsers = asyncHandler(async (req, res, next) => {
 export const addLoggedInUserSkills = asyncHandler(async (req, res, next) => {
   const { skill } = req.body;
 
-  if (req.user.Userskills.includes(skill)) {
-    return next(new Error("Sorry Skill allready exist"));
+  if (req.user.UserSkills.includes(skill)) {
+    return next(new Error("Sorry Skill already exist"));
   }
 
   if (!skill || (Array.isArray(skill) && skill.length === 0)) {
@@ -664,7 +664,7 @@ export const addLoggedInUserSkills = asyncHandler(async (req, res, next) => {
 
   const NewUserSkill = await userModel.findOneAndUpdate(
     { _id: req.user._id, status: "online" },
-    { $addToSet: { Userskills: skill } },
+    { $addToSet: { UserSkills: skill } },
     { new: true }
   );
 

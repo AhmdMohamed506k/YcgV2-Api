@@ -1,9 +1,9 @@
 import Stripe from "stripe";
 import { asyncHandler } from "../../middleware/asyncHandler/asyncHandler.js";
-import { userModel } from "../../../DB/models/User/UserMainModel/user.model.js";
-import companyModel  from "../../../DB/models/Company/Company.model.js";
-import { sendEmail } from "../../service/sendEmail/sendMail.js";
-import  redisClient  from "../../utils/redisClient/redisClient.js";
+import { userModel } from "../../../DB/models/User/user_main_model/user.model.js";
+import companyModel  from "../../../DB/models/company/company.model.js";
+import { sendEmail } from "../../service/send_email/send_email.js";
+import  redisClient  from "../../utils/redis_client/redis_client.js";
 
 const stripe = new Stripe(process.env.MyStripeAPIkey)
 

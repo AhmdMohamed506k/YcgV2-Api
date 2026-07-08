@@ -1,10 +1,10 @@
 import { nanoid } from "nanoid/non-secure";
-import { userModel } from "../../../../../DB/models/User/UserMainModel/user.model.js";
+import { userModel } from "../../../../../DB/models/User/user_main_model/user.model.js";
 import { experienceSectionModel } from "../../../../../DB/models/User/UserSections/ExperienceSection.model.js";
 import { asyncHandler } from "../../../../middleware/asyncHandler/asyncHandler.js";
 import { customAlphabet } from "nanoid";
 import mongoose from "mongoose";
-import redisClient from "../../../../utils/redisClient/redisClient.js";
+import redisClient from "../../../../utils/redis_client/redis_client.js";
 
 
 

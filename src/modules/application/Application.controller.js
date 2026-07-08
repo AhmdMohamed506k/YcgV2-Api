@@ -1,13 +1,18 @@
-import { jobModel } from "../../../DB/models/Jobs/JobPost/Job.model.js";
-import { applicationModel } from "../../../DB/models/Jobs/JobApplication/JobApplication.model.js";
-import companyModel from "../../../DB/models/Company/Company.model.js";
+
+//Model_imports
+import { applicationModel } from "../../../DB/models/Jobs/job_application/job_application.model.js";
+import { notificationModel } from "../../../DB/models/notifications/notifications.model.js";
+import { userModel } from "../../../DB/models/User/user_main_model/user.model.js";
+import { jobModel } from "../../../DB/models/Jobs/job_post/job.model.js";
+import companyModel from "../../../DB/models/company/company.model.js";
+
+
+// project service imports
 import { asyncHandler } from "../../middleware/asyncHandler/asyncHandler.js";
-import cloudinary from "../../utils/Cloudinary/Cloudinary.js";
-import redisClient from "../../utils/redisClient/redisClient.js";
-import { sendEmail } from "../../service/SendEmail/sendMail.js"; 
-import MyPusher from "../../service/Pusher/PusherConfig.js"; 
-import { userModel } from "../../../DB/models/User/UserMainModel/user.model.js";
-import { notificationModel } from "../../../DB/models/notifications/Notifications.model.js";
+import cloudinary from "../../utils/cloudinary/cloudinary.js";
+import redisClient from "../../utils/redis_client/redis_client.js";
+import { sendEmail } from "../../service/send_email/send_email.js"; 
+import MyPusher from "../../service/pusher/pusher_config.js"; 
 
 
 

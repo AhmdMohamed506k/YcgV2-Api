@@ -1,11 +1,11 @@
-import { ActivityModel } from "../../../../DB/models/Activities/Activities.model.js";
-import companyModel from "../../../../DB/models/Company/Company.model.js";
-import { userModel } from "../../../../DB/models/User/UserMainModel/user.model.js";
-import { jobModel } from "../../../../DB/models/Jobs/JobPost/Job.model.js";
-import { applicationModel } from "../../../../DB/models/Jobs/JobApplication/JobApplication.model.js";
+import { ActivityModel } from "../../../../DB/models/activities/activities.model.js";
+import companyModel from "../../../../DB/models/company/company.model.js";
+import { userModel } from "../../../../DB/models/User/user_main_model/user.model.js";
+import { jobModel } from "../../../../DB/models/Jobs/job_post/job.model.js";
+import { applicationModel } from "../../../../DB/models/Jobs/job_application/job_application.model.js";
 import { asyncHandler } from "../../../middleware/asyncHandler/asyncHandler.js";
-import cloudinary from "../../../utils/Cloudinary/Cloudinary.js";
-import redisClient from "../../../utils/redisClient/redisClient.js";
+import cloudinary from "../../../utils/cloudinary/cloudinary.js";
+import redisClient from "../../../utils/redis_client/redis_client.js";
 import slugify from "slugify"
 import { nanoid } from "nanoid";
 

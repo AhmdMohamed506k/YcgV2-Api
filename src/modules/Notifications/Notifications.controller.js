@@ -1,6 +1,6 @@
 import { asyncHandler } from "../../middleware/asyncHandler/asyncHandler.js";
-import { notificationModel } from "../../../DB/models/notifications/Notifications.model.js";
-import redisClient from "../../utils/redisClient/redisClient.js";
+import { notificationModel } from "../../../DB/models/notifications/notifications.model.js";
+import redisClient from "../../utils/redis_client/redis_client.js";
 
 // ==========================================
 // 1. Get My Notifications
@@ -10,9 +10,9 @@ export const GetMyNotifications = asyncHandler(async (req, res, next) => {
     const recipientId = req.identity.id; 
     const cacheKey = `Notifications:${recipientId}`;
 
-    const cachedNotifs = await redisClient.get(cacheKey);
-    if (cachedNotifs) {
-        return res.status(200).json({ status: "success", source: "Cache", data: JSON.parse(cachedNotifs) });
+    const cachedNotifications = await redisClient.get(cacheKey);
+    if (cachedNotifications) {
+        return res.status(200).json({ status: "success", source: "Cache", data: JSON.parse(cachedNotifications) });
     }
 
 

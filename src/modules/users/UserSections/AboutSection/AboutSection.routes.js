@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { auth } from "../../../../middleware/Auth/auth.js";
+import { auth } from "../../../../middleware/auth/auth.js";
 import * as AbSection from './AboutSection.controller.js'
 import * as AbsValidation from './AboutSectionValidation.js'
-import { validate } from "../../../../middleware/Validation/Validation.js";
+import { validate } from "../../../../middleware/validation/validation.js";
 
 
 

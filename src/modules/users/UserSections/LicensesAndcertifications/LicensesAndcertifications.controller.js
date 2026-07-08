@@ -1,12 +1,17 @@
 import { asyncHandler } from "../../../../middleware/asyncHandler/asyncHandler.js";
-import {userModel} from "../../../../../DB/models/User/UserMainModel/user.model.js"
-import cloudinary from "../../../../utils/Cloudinary/Cloudinary.js";
+import {userModel} from "../../../../../DB/models/User/user_main_model/user.model.js"
+import cloudinary from "../../../../utils/cloudinary/cloudinary.js";
 import { LicensesAndcertificationsModel } from "../../../../../DB/models/User/UserSections/LicensesAndCertifications.model.js";
-import redisClient from "../../../../utils/redisClient/redisClient.js";
+import redisClient from "../../../../utils/redis_client/redis_client.js";
 import { nanoid } from "nanoid";
 
 
 
+
+const clearCache = async (userId) => {
+    await redisClient.del(`UserLicenses:${userId}`);
+    await redisClient.del(`user:profile:${userId}`);
+};
 
 
 
@@ -21,26 +26,26 @@ export const AddLicensesAndcertifications = asyncHandler(async ( req, res ,next)
 
 
 
-    //IF user Exists Create object and put inside it the Required Informations
-    const LincenseObject = {Name:req.body.Name , organization:req.body.organization ,CreatedBy:UserID};
+    //IF user Exists Create object and put inside it the Required Information
+    const LicenseObject = {Name:req.body.Name , organization:req.body.organization ,CreatedBy:UserID};
 
-    //if user attempted to add CertificationURL(optional) add it,and IF not dont add it
-    if(req.body.CertificationURL){LincenseObject.CertificationURL =req.body.CertificationURL}
+    //if user attempted to add CertificationURL(optional) add it,and IF not don't add it
+    if(req.body.CertificationURL){LicenseObject.CertificationURL =req.body.CertificationURL}
      
 
 
 
-    // IF attempted to add lincense Image (optional) add it,and IF not dont add it
+    // IF attempted to add License Image (optional) add it,and IF not don't add it
     if(req.file){
       const randomId = nanoid();
 
-       // Upload Lincense in Cloudinary  servers
+       // Upload License in Cloudinary  servers
        const  {secure_url ,public_id} = await cloudinary.uploader.upload(req.file.path ,{
         folder:`Ycg/users/${UserID}/${req.user.firstName}_${req.user.lastName}/UserLicensesAndcertifications/${randomId}/LicensesAndcertifications`,
        })
         
        // put the license in the object
-       LincenseObject.CertificationImage={
+       LicenseObject.CertificationImage={
         secure_url ,
         public_id
        }
@@ -53,17 +58,16 @@ export const AddLicensesAndcertifications = asyncHandler(async ( req, res ,next)
 
      
     // Add the new Licenses into the DataBase
-    const NewUserLicense= await LicensesAndcertificationsModel.create(LincenseObject);
+    const NewUserLicense= await LicensesAndcertificationsModel.create(LicenseObject);
    
 
 
     // Clear Cash
-    const key= await redisClient.keys("Licenses:*");
-    if(key.length >0){await redisClient.del(key)}
+    await clearCache(req.user._id)
 
     
     if(!NewUserLicense){
-      return  res.status(400).json("faild to add License")
+      return  res.status(400).json("failed to add License")
     }
     res.status(200).json({status:"Success", msg:"Added successfully"})
 
@@ -75,26 +79,27 @@ export const AddLicensesAndcertifications = asyncHandler(async ( req, res ,next)
 export const GetUserLicenses = asyncHandler(async(req,res,next)=>{
 
   
-    const CashKey= `Licenses:${req.user._id}`
+    const CashKey= `UserLicenses:${req.user._id}`
     
-    //Check if Licesnses are cashed or Not
+    //Check if Licenses are cashed or Not
     const CashedData= await redisClient.get(CashKey);
     if(CashedData){
-       // IF Licesnses are Cashed display them
-       return res.status(200).json({status:"Success",source:"Cash",UserLicencses:JSON.parse(CashedData)});
+       // IF Licenses are Cashed display them
+       return res.status(200).json({status:"Success",source:"Cash",UserLicenses:JSON.parse(CashedData)});
 
     }
-   // IF Licesnses are not cashed ==> get user licesnces
-    const UserLicencses = await LicensesAndcertificationsModel.find({CreatedBy:req.user._id});
-    if(UserLicencses.length === 0){
-        return next(new Error("Sorry you dont have Licencses yet"),{cause:400});
+   // IF Licenses are not cashed ==> get user Licenses
+
+    const UserLicenses = await LicensesAndcertificationsModel.find({CreatedBy:req.user._id});
+    if(UserLicenses.length === 0){
+        return next(new Error("Sorry you don't have Licenses yet"),{cause:400});
     }
     
     // then cash them
-    await redisClient.set(CashKey,JSON.stringify(UserLicencses),"EX",300);
+    await redisClient.set(CashKey,JSON.stringify(UserLicenses),"EX",300);
    
-    //display Licesnses
-    res.status(200).json({status:"Success",source:"DataBase",msg:"done",UserLicencses})
+    //display Licenses
+    res.status(200).json({status:"Success",source:"DataBase",msg:"done",UserLicenses})
 
 
 
@@ -110,7 +115,7 @@ export const UpdateUserLicenseByID = asyncHandler(async (req, res, next) => {
   const license = await LicensesAndcertificationsModel.findById(id);
   if (!license) {return next(new Error("License not found",{cause:400}))}
 
-  // if Lincense Exists check the Ownership 
+  // if License Exists check the Ownership 
   if (license.CreatedBy.toString() !== userId.toString()) {
     return next(new Error("You are not allowed to update this license",{cause:403}))
   }
@@ -135,7 +140,7 @@ export const UpdateUserLicenseByID = asyncHandler(async (req, res, next) => {
     }
     const randomId = nanoid();
 
-    // upload the new lincense Image in Cloudinary servers
+    // upload the new license Image in Cloudinary servers
     const { secure_url, public_id } = await cloudinary.uploader.upload(req.file.path, {
     folder:`Ycg/users/${userId}/${req.user.firstName}_${req.user.lastName}/UserLicensesAndcertifications/${randomId}/LicensesAndcertifications`,
 
@@ -154,8 +159,7 @@ export const UpdateUserLicenseByID = asyncHandler(async (req, res, next) => {
 
 
   // Clear cache
-  const key= await redisClient.keys("Licenses:*");
-  if(key.length >0){await redisClient.del(key)}
+  await clearCache(req.user._id)
 
 
   res.status(200).json({ status: "Success",message: "License updated successfully",license,});
@@ -173,7 +177,7 @@ export const DeleteUserLicenseById = asyncHandler(async (req, res, next) => {
    return next(new Error("License not found",404))
   }
 
-  // if Lincense Exists check the Ownership 
+  // if License Exists check the Ownership 
   if (license.CreatedBy.toString() !== userId.toString()) {
     return next(new Error("You are not allowed to delete this license",403))
   }
@@ -187,8 +191,7 @@ export const DeleteUserLicenseById = asyncHandler(async (req, res, next) => {
   await license.deleteOne();
 
   // Clear cache
-  const key= await redisClient.keys("Licenses:*");
-  if(key.length >0){await redisClient.del(key)}
+  await clearCache(req.user._id)
 
   res.status(200).json({status: "Success",msg: "License deleted successfully", });
 });

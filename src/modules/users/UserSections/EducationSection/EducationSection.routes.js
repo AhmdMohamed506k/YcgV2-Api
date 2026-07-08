@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { auth } from "../../../../middleware/Auth/auth.js";
+import { auth } from "../../../../middleware/auth/auth.js";
 import * as ED from "./EducationSection.controller.js"
 import * as EDV from "./EducationValidation.js"
-import { validate } from "../../../../middleware/Validation/Validation.js";
+import { validate } from "../../../../middleware/validation/validation.js";
 
 
 

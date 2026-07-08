@@ -3,7 +3,7 @@
 
 // middleware/identity.middleware.js
 
-import companyModel from "../../../DB/models/Company/Company.model.js";
+import companyModel from "../../../DB/models/company/company.model.js";
 import { asyncHandler } from "../asyncHandler/asyncHandler.js";
 
 export const activeIdentity = asyncHandler(async (req, res, next) => {

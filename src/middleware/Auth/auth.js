@@ -1,6 +1,6 @@
 
 import jwt, { decode } from "jsonwebtoken";
-import {userModel} from "../../../DB/models/User/UserMainModel/user.model.js";
+import {userModel} from "../../../DB/models/User/user_main_model/user.model.js";
 
 
 export const auth = async (req, res, next) => {

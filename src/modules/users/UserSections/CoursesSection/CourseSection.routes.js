@@ -1,8 +1,8 @@
 import { Router } from "express";
 import * as CS from "./CourseSection.controller.js"
 import * as CSV from "./CoursesSectionValidation.js"
-import { auth } from "../../../../middleware/Auth/auth.js";
-import { validate } from "../../../../middleware/Validation/Validation.js";
+import { auth } from "../../../../middleware/auth/auth.js";
+import { validate } from "../../../../middleware/validation/validation.js";
 
 
 

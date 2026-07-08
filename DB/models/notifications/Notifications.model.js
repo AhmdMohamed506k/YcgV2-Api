@@ -1,4 +1,4 @@
-import { Schema, model, Types } from "mongoose";
+import mongoose, { Schema, model, Types } from "mongoose";
 
 const notificationSchema = new Schema({
     recipient: {
@@ -32,4 +32,4 @@ const notificationSchema = new Schema({
   { timestamps: true },
 );
 
-export const notificationModel = model("Notification", notificationSchema);
+export const notificationModel = mongoose.models.Notification || model("Notification", notificationSchema);

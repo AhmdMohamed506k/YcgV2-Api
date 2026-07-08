@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { auth } from "../../middleware/Auth/auth.js";
-import * as PY from "./Payment.controller.js"
+import { auth } from "../../middleware/auth/auth.js";
+import * as PY from "./payment.controller.js"
 import express from "express"; 
 
 

@@ -1,6 +1,6 @@
 import { Router } from "express";
-import * as NT from "./Notifications.controller.js"
-import { auth } from "../../middleware/Auth/auth.js";
+import * as NT from "./notifications.controller.js"
+import { auth } from "../../middleware/auth/auth.js";
 import { activeIdentity } from "../../middleware/activeIdentity/activeIdentity.js";
 
 

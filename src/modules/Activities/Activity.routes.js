@@ -1,8 +1,13 @@
 import { Router } from "express";
-import {auth} from '../../middleware/Auth/auth.js';
-import { MulterHost,  validExtensions} from "../../middleware/MulterHost/MulterHost.js";
-import * as AC from "./Activity.controller.js"
+import {auth} from '../../middleware/auth/auth.js';
+
+import { MulterHost,  validExtensions} from "../../middleware/multerHost/multerHost.js";
 import { activeIdentity } from "../../middleware/activeIdentity/activeIdentity.js";
+import { validate } from "../../middleware/validation/validation.js";
+
+import * as AC from "./activity.controller.js"
+import * as ACV from "./activity.validation.js"
+
 const FieldsArray=[ { name: 'image', maxCount: 1 }, { name: 'video', maxCount: 1 }, { name: 'videoCover', maxCount: 1 },]
 
 
@@ -16,7 +21,7 @@ const ActivityRouter = Router();
 
 
 //YELLOW2 ====> Create (1)
-ActivityRouter.post("/createActivity", auth, activeIdentity,MulterHost([...validExtensions.image, ...validExtensions.media]).fields(FieldsArray), AC.CreateActivity);
+ActivityRouter.post("/createActivity", auth, activeIdentity,MulterHost([...validExtensions.image, ...validExtensions.media]).fields(FieldsArray),validate(ACV.activityValidation.createActivity),AC.CreateActivity);
 
 
 
@@ -29,7 +34,7 @@ ActivityRouter.get("/ActivityAnalytics/ActivitySummery/:activityId", auth,active
 
 
 //CYAN2 ===>  Update (1)
-ActivityRouter.put("/Profiles/ChangeActivityDetails/:activityId", auth,activeIdentity,MulterHost([...validExtensions.image, ...validExtensions.media]).fields(FieldsArray), AC.UpdateActivity);
+ActivityRouter.put("/Profiles/ChangeActivityDetails/:activityId", auth,activeIdentity,MulterHost([...validExtensions.image, ...validExtensions.media]).fields(FieldsArray),validate(ACV.activityValidation.updateActivity), AC.UpdateActivity);
 
 
 //RED3 ===>  Delete (1)
@@ -46,7 +51,7 @@ ActivityRouter.delete("/Profiles/DeleteActivity/:activityId",auth,activeIdentity
 
 //YELLOW1 ====> Like (1)
 
-ActivityRouter.patch("/ActivityToggleLike", auth, activeIdentity, AC.ActivityToggleLike);  // ✅
+ActivityRouter.patch("/ActivityToggleLike", auth, activeIdentity,validate(ACV.activityValidation.toggleLike), AC.ActivityToggleLike);  // ✅
 
 //YELLOW1===============> 
 
@@ -55,17 +60,17 @@ ActivityRouter.patch("/ActivityToggleLike", auth, activeIdentity, AC.ActivityTog
 //ORANGE1 ===> Comment (6)
 
 //WHITE: Create(2)
-ActivityRouter.put("/AddNewComment", auth,activeIdentity, AC.AddComment); // ✅
+ActivityRouter.put("/AddNewComment", auth,activeIdentity,validate(ACV.activityValidation.addComment), AC.AddComment); // ✅
 ActivityRouter.patch("/Comment/ToggleCommentLike", auth,activeIdentity, AC.CommentToggleLike);  // ✅
 
 //GREEN3: Display(1)
 ActivityRouter.get("/Comments/getPostComments", auth, AC.GetPostComments); //✅
 
 //CYAN1: Update(1)
-ActivityRouter.put("/Comment/UpdateComment", auth,activeIdentity, AC.UpdateComment);//✅
+ActivityRouter.put("/Comment/UpdateComment", auth,activeIdentity,validate(ACV.activityValidation.updateComment), AC.UpdateComment);//✅
 
 //RED3: Delete(1)
-ActivityRouter.delete("/Comments/DeleteComment/:commentId", auth,activeIdentity, AC.DeleteComment);
+ActivityRouter.delete("/Comments/DeleteComment/:commentId", auth,activeIdentity,validate(ACV.activityValidation.deleteComment), AC.DeleteComment);
 
 //ORANGE1==========================>
 

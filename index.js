@@ -3,25 +3,45 @@ import 'dotenv/config'
 import express from "express";
 import connectionDB from "./DB/connectionDB.js";
 import cors from "cors";
-import UserRouter from "./src/modules/users/User/user.routes.js";
+
+
+import UserRouter from "./src/modules/users/user/user.routes.js";
+import CompanyRouter from "./src/modules/companys/company/company.routes.js";
+import FeaturesRouter from './src/modules/website_features/features.routes.js';
+
+
+// Sections
 import ExperienceSectionRouter from "./src/modules/users/UserSections/ExperienceSection/ExperienceSection.routes.js";
 import AboutSectionRouter from "./src/modules/users/UserSections/AboutSection/AboutSection.routes.js";
 import EducationSectionRouter from "./src/modules/users/UserSections/EducationSection/EducationSection.routes.js";
 import LanguageSectionRouter from "./src/modules/users/UserSections/LanguagesSection/LanguagesSection.router.js";
 import CourseSectionRouter from "./src/modules/users/UserSections/CoursesSection/CourseSection.routes.js";
 import ProjectSectionRouter from "./src/modules/users/UserSections/ProjectSection/ProjectSection.routes.js";
-import LicensesAndcertificationsRouter from "./src/modules/users/UserSections/LicensesAndcertifications/LicensesAndcertifications.routes.js";
-import NotificationRouter from "./src/modules/Notifications/Notifications.routes.js";
-import ChatRouter from "./src/modules/ChatSystem/Chat.routes.js";
-import PaymentRouter from "./src/modules/Payment/Payment.routes.js";
-import CompanyRouter from "./src/modules/Companys/Company/Company.routes.js";
-import ActivityRouter from './src/modules/Activities/Activity.routes.js';
-import FeaturesRouter from './src/modules/WebsiteFeatures/Features.routes.js';
-import JobRouter from './src/modules/Jobs/Jobs.routes.js';
-import ApplicationRouter from './src/modules/Application/Application.routes.js';
-import LiveStreamChatRouter from './src/modules/LiveStreamChat/LiveStreamChat.routes.js';
-import * as PY from "./src/modules/Payment/Payment.controller.js";
-import LiveServer from "./src/service/LiveStream/LiveServer.js";
+import LicensesAndCertificationsRouter from "./src/modules/users/UserSections/LicensesAndcertifications/LicensesAndcertifications.routes.js";
+import SkillsSectionRouter from "./src/modules/users/UserSections/SkillsSection/SkillsSection.routes.js";
+
+
+
+
+import NotificationRouter from "./src/modules/notifications/notifications.routes.js";
+import ChatRouter from "./src/modules/chat/chat.routes.js";
+
+
+// jobs
+import JobRouter from './src/modules/jobs/jobs.routes.js';
+import ApplicationRouter from './src/modules/application/application.routes.js';
+
+
+// Payment
+import PaymentRouter from "./src/modules/payment/payment.routes.js";
+import * as PY from "./src/modules/payment/payment.controller.js";
+
+
+import ActivityRouter from './src/modules/activities/activity.routes.js';
+
+//liveStream
+import LiveStreamChatRouter from './src/modules/live_stream_chat/live_stream_chat.routes.js';
+import LiveServer from "./src/service/live_stream/live_server.js";
 
 
 
@@ -86,7 +106,9 @@ app.use("/api/v1/Jobs", JobRouter);
 
 
 //YELLOW1=================UserSections==========================>
-app.use("/api/v1/UserSections/UserLicenses", LicensesAndcertificationsRouter); 
+app.use("/api/v1/UserSections/UserSkills", SkillsSectionRouter); 
+
+app.use("/api/v1/UserSections/UserLicenses", LicensesAndCertificationsRouter); 
 
 app.use("/api/v1/UserSections/UserProjects", ProjectSectionRouter); 
 

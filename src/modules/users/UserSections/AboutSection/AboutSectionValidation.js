@@ -1,5 +1,5 @@
 import joi from 'joi';
-import { generalFields } from '../../../../middleware/Validation/generalFields.js'; 
+import { generalFields } from '../../../../middleware/validation/generalFields.js'; 
 
 export const addAboutSection = {
     body: joi.object({

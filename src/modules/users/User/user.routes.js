@@ -1,8 +1,10 @@
 import { Router } from "express";
 import * as us from "./user.controller.js";
-import * as AC from "../../Activities/Activity.controller.js";
-import { auth } from "../../../middleware/Auth/auth.js";
-import { MulterHost,  validExtensions} from "../../../middleware/MulterHost/MulterHost.js";
+import * as USV from "./user_validation.js";
+import * as AC from "../../activities/activity.controller.js";
+import { auth } from "../../../middleware/auth/auth.js";
+import { MulterHost,  validExtensions} from "../../../middleware/multerHost/multerHost.js";
+import { validate } from "../../../middleware/validation/validation.js";
 
 const UserRouter = Router();
 
@@ -12,23 +14,23 @@ const UserRouter = Router();
 
 //GOLD =============Register================ !//
 
-UserRouter.post("/Register", us.Register);//* Register
+UserRouter.post("/Register",validate(USV.register), us.Register);//* Register
 
-UserRouter.put("/VerifyUserAccount", us.VerifyUserAccount);//* VerifyUserAccount
+UserRouter.put("/VerifyUserAccount",validate(USV.verifyAccount),us.VerifyUserAccount);//* VerifyUserAccount
 
-UserRouter.put("/AddRegisteredUserName", auth, us.AddRegisteredUserName);//* AddRegisteredUserName
+UserRouter.put("/AddRegisteredUserName", auth,validate(USV.AddRegisteredUserName), us.AddRegisteredUserName);//* AddRegisteredUserName
 
-UserRouter.put("/AddRegisteredUserLocation", auth, us.AddRegisteredUserLocation);//* AddRegisteredUserLocation
+UserRouter.put("/AddRegisteredUserLocation", auth,validate(USV.AddRegisteredUserLocation), us.AddRegisteredUserLocation);//* AddRegisteredUserLocation
 
-UserRouter.put("/AddRegisteredUserCurrentJob", auth, us.AddRegisteredUserCurrentJob);//* AddRegisteredUserCurrentJob
+UserRouter.put("/AddRegisteredUserCurrentJob", auth,validate(USV.AddRegisteredUserCurrentJob), us.AddRegisteredUserCurrentJob);//* AddRegisteredUserCurrentJob
 
-UserRouter.put("/AddRegisteredUserOtherInformation", auth , MulterHost(validExtensions.image).single("UserProfileImg") , us.AddRegisteredUserOtherInformation);//* AddRegisteredUserOtherInformation
+UserRouter.put("/AddRegisteredUserOtherInformation", auth , MulterHost(validExtensions.image).single("UserProfileImg"),validate(USV.addUserOtherInfo), us.AddRegisteredUserOtherInformation);//* AddRegisteredUserOtherInformation
 
 
 //GOLD ===============Login================ !//
 
 //CYAN2 Create (1)
-UserRouter.post("/Login", us.Login);//* Login
+UserRouter.post("/Login",validate(USV.login), us.Login);//* Login
 
 
 //GREEN3 Display (1)
@@ -36,15 +38,15 @@ UserRouter.get("/getLoggedUserProfile", auth, us.getLoggedUserProfile);//* getLo
 
 
 //YELLOW1 update (3)
-UserRouter.put("/updateLoggedInUserPassword", auth, us.updateLoggedInUserPassword);//* updateLoggedInUserPassword
-UserRouter.put("/updateLoggedInUserdata", auth, us.updateLoggedInUserdata);//* updateLoggedInUserdata
+UserRouter.put("/updateLoggedInUserPassword", auth,validate(USV.updateProfile), us.updateLoggedInUserPassword);//* updateLoggedInUserPassword
+UserRouter.put("/updateLoggedInUserdata", auth,validate(USV.updatePassword), us.updateLoggedInUserdata);//* updateLoggedInUserdata
 UserRouter.get("/refresh-status", auth, us.refreshStatus);//* refreshUserStatus
 
 
 //RED3 ForgetPass (3)
-UserRouter.put("/ForgetPassword", us.ForgetPassWord); //* ForgetPassWord
-UserRouter.put("/CheckResetCode", us.CheckResetCode);//* CheckResetCode
-UserRouter.put("/ResetPassword", us.ResetPassword);//* ResetPassword
+UserRouter.put("/ForgetPassword",validate(USV.forgetPassword), us.ForgetPassWord); //* ForgetPassWord
+UserRouter.put("/CheckResetCode",validate(USV.checkResetCode), us.CheckResetCode);//* CheckResetCode
+UserRouter.put("/ResetPassword",validate(USV.resetPassword), us.ResetPassword);//* ResetPassword
 
 
 
@@ -54,8 +56,8 @@ UserRouter.put("/ResetPassword", us.ResetPassword);//* ResetPassword
 
 
 //GREEN3==>UserCV Methods
-UserRouter.post("/UserCv",auth,MulterHost(validExtensions.cv).single("userCV"),us.UploadUserCv);
-UserRouter.delete("/DeleteUserCv",auth,us.DeleteUserCv);
+UserRouter.post("/UserCv",auth,MulterHost(validExtensions.cv).single("userCV"),validate(USV.uploadCV),us.UploadUserCv);
+UserRouter.delete("/DeleteUserCv",auth,validate(USV.deleteCV),us.DeleteUserCv);
 UserRouter.get("/GetUserCv",auth,us.GetUserCvs);
 
 

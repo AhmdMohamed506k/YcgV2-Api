@@ -1,8 +1,8 @@
 
-import { userModel } from "../../../../../DB/models/User/UserMainModel/user.model.js";
+import { userModel } from "../../../../../DB/models/User/user_main_model/user.model.js";
 import  LanguagesSectionModel  from "../../../../../DB/models/User/UserSections/Languages.model.js";
 import { asyncHandler } from "../../../../middleware/asyncHandler/asyncHandler.js";
-import redisClient from "../../../../utils/redisClient/redisClient.js";
+import redisClient from "../../../../utils/redis_client/redis_client.js";
 
 
 const clearCache = async (userId) => {
@@ -51,10 +51,7 @@ export const GetSpecificUserLanguages = asyncHandler(async (req, res, next) => {
   }
 
   // Get user languages
-  const userLanguages = user.userSections.userLanguageSection;
-  if (!userLanguages || userLanguages.length === 0) {
-    return next(new Error("Sorry, user has no languages in this section"));
-  }
+  const userLanguages = await LanguagesSectionModel.find({CreatedBy:req.user._id});
 
   // Cache the result
   await redisClient.set(cacheKey,JSON.stringify(userLanguages),"EX",3000);
@@ -68,13 +65,20 @@ export const updateUserLanguageData = asyncHandler(async (req, res, next) => {
   const { Language, Proficiency } = req.body;
 
 
+
+  // Find User By ID
+  const user = await userModel.findById(req.user._id);
+  if (!user) return next(new Error("User not found", 400));
+
+
+
+
+
   // Find User and the Language
-  const result = await userModel.findOneAndUpdate( {_id: req.user._id,"userSections.userLanguageSection._id": _id},
+  const result = await LanguagesSectionModel.findOneAndUpdate( {CreatedBy: req.user._id, _id},
     {
-      $set: {
-        "userSections.userLanguageSection.$.Language": Language,
-        "userSections.userLanguageSection.$.Proficiency": Proficiency
-      }
+    Language,
+    Proficiency
     },
     { new: true }
   );
@@ -82,36 +86,33 @@ export const updateUserLanguageData = asyncHandler(async (req, res, next) => {
 
   
   //clear cash after update
-   await clearCache(req.user._id)
+  await clearCache(req.user._id)
 
   if (!result) { return next(new Error("Language not found or you are not authorized", 404)); }
   res.status(200).json({message: "Language updated successfully"});
 });
 export const DeleteUserLanguagesSection = asyncHandler(async (req, res, next) => {
+
   const { _id } = req.params;
+   
+
+
+
+  // Find User By ID
+  const user = await userModel.findById(req.user._id);
+  if (!user) return next(new Error("User not found", 400));
 
 
   // Find User and the Language
-  const result = await userModel.findOneAndUpdate( {_id: req.user._id,"userSections.userLanguageSection._id": _id},
-    {
-      $pull: {
-        "userSections.userLanguageSection": { _id }
-      }
-    },
-    { new: true }
-  );
-
+  const result = await LanguagesSectionModel.findOneAndDelete( {CreatedBy: req.user._id, _id})
+   
 
 
   //clear cash after Delete
   await clearCache(req.user._id)
 
 
-
-
   if (!result) {return next(new Error("Language not found or you are not authorized", 404)); }
 
-  res.status(200).json({
-    message: "Language deleted successfully"
-  });
+  res.status(200).json({ message: "Language deleted successfully"});
 });

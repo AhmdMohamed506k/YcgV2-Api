@@ -1,11 +1,11 @@
-import { jobModel } from "../../../DB/models/Jobs/JobPost/Job.model.js";
-import { applicationModel } from "../../../DB/models/Jobs/JobApplication/JobApplication.model.js";
-import companyModel from "../../../DB/models/Company/Company.model.js";
+import { jobModel } from "../../../DB/models/Jobs/job_post/job.model.js";
+import { applicationModel } from "../../../DB/models/Jobs/job_application/job_application.model.js";
+import companyModel from "../../../DB/models/company/company.model.js";
 import { asyncHandler } from "../../middleware/asyncHandler/asyncHandler.js";
-import cloudinary from "../../utils/Cloudinary/Cloudinary.js";
-import redisClient from "../../utils/redisClient/redisClient.js";
-import { sendEmail } from "../../service/SendEmail/sendMail.js"; 
-import MyPusher from "../../service/Pusher/PusherConfig.js"; 
+import cloudinary from "../../utils/cloudinary/cloudinary.js";
+import redisClient from "../../utils/redis_client/redis_client.js";
+import { sendEmail } from "../../service/send_email/send_email.js"; 
+import MyPusher from "../../service/pusher/pusher_config.js"; 
 
 // ====================================JobPostCRUD====================================================
  

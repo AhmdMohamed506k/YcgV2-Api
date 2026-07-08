@@ -1,0 +1,178 @@
+import mongoose, { Schema, model } from "mongoose";
+
+
+
+const userSchema = new Schema(
+  {
+    firstName: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      default: null,
+    },
+    lastName: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      default: null,
+    },
+    userSubTitle: {
+      type: String,
+      default: null,
+    },
+    email: {
+      type: String,
+      unique: true,
+      required: true,
+      lowercase: true,
+      trim: true,
+    },
+    password: {
+      type: String,
+      required: true,
+    },
+    UserSkills: {
+      type: Array,
+      default: null,
+    },
+    userPhoneNumber: {
+      type: String,
+      index: true,
+    },
+    dateOfBirth: {
+      type: Date,
+      default: null,
+    },
+    gender: {
+      type: String,
+      enum: ["male", "female"],
+      lowercase: true,
+      default: "male",
+    },
+    isPremium: {
+      type: Boolean,
+      default: false,
+    },
+    premiumUntil: {
+      type: Date,
+      default: null,
+    },
+    stripeCustomerId: {
+      type: String,
+    },
+
+    userCVs: [{
+
+    customName: { 
+      type: String, 
+      default: null ,
+      trim: true 
+    },
+    secure_url: { type: String, default: null  },
+    public_id: { type: String, default: null  },
+    uploadedAt: { type: Date, default: Date.now }
+  }
+    ],
+    userProfileImg: {
+      secure_url: { type: String, default: null },
+      public_id: { type: String, default: null },
+    },
+    userBanner: {
+      secure_url: { type: String, default: null },
+      public_id: { type: String, default: null },
+    },
+    
+    isForgetCodeVerified: { type: Boolean, default: false },
+    EmailVerificationCode: String,
+    EmailVerificationIsVerified: {
+      type: Boolean,
+      default: false,
+    },
+    role: {
+      type: String,
+      enum: ["user", "admin", "company","premium_user"],
+      default: "user",
+    },
+    status: {
+      type: String,
+      enum: ["online", "offline"],
+      default: "offline",
+    },
+    lastSeen: {
+      type: Date,
+      default: Date.now,
+    },
+    location: {
+      country: {
+        type: String,
+        default: null,
+      },
+      city: {
+        type: String,
+        default: null,
+      },
+    },
+    UserCurrentJob: {
+      JopTitle: {
+        type: String,
+        default: null,
+      },
+      EmploymentType: {
+        type: String,
+        default: null,
+      },
+    },
+    isChatBanned: { 
+      type: Boolean,
+      default: false 
+    },
+
+
+
+  
+  },
+  {
+    timestamps: true,
+    versionKey: false,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
+  },
+);
+
+
+
+///////////////////Followers/////////////////////////
+userSchema.virtual("Followers", {
+  ref: "Follow",
+  localField: "_id",
+  foreignField: "followingId",
+});
+userSchema.virtual("followersCount", {
+  ref: "Follow",
+  localField: "_id",
+  foreignField: "followingId",
+  count: true,
+});
+
+///////////////////Following/////////////////////////
+userSchema.virtual("Following", {
+  ref: "Follow",
+  localField: "_id",
+  foreignField: "followerId",
+});
+userSchema.virtual("followingCount", {
+  ref: "Follow",
+  localField: "_id",
+  foreignField: "followerId",
+  count: true,
+});
+
+///////////////////Views/////////////////////////
+userSchema.virtual("viewsCount", {
+  ref: "View",
+  localField: "_id",
+  foreignField: "profileId",
+  count: true,
+});
+
+export const userModel = model("user", userSchema);

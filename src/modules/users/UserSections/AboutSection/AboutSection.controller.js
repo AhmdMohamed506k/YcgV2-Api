@@ -1,7 +1,7 @@
-import { userModel } from "../../../../../DB/models/User/UserMainModel/user.model.js";
+import { userModel } from "../../../../../DB/models/User/user_main_model/user.model.js";
 import aboutSectionModel from "../../../../../DB/models/User/UserSections/aboutSection.model.js";
 import { asyncHandler } from "../../../../middleware/asyncHandler/asyncHandler.js";
-import redisClient from "../../../../utils/redisClient/redisClient.js"
+import redisClient from "../../../../utils/redis_client/redis_client.js"
 
 
 const clearUserCache = async (userId) => {
