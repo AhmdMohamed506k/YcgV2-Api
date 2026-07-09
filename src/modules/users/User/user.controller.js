@@ -48,7 +48,7 @@ export const Register = asyncHandler(async (req, res, next) => {
 
 
   
-  sendEmail(email, "", `<h1>your code in ${code}</h1>`);
+  await sendEmail(email, "", `<h1>your code in ${code}</h1>`);
 
 
 

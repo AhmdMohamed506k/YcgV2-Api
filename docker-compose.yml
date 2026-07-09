@@ -6,7 +6,7 @@ services:
       - "3000:3000"
     environment:
       - REDIS_URL=redis://redis:6379 
-      - MONGO_URI=mongodb://mongodb:27017/YcgDB
+      - MONGO_URI=mongodb://mongodb:27017/Ycg
     depends_on:
       - redis
       - mongodb
